@@ -17,12 +17,12 @@ class HardDrive {
     fun getBlock(blockIndex: Int) = blocksList[blockIndex]
 
     fun setBlock(blockIndex: Int, bytesToSet: ArrayList<Byte>) {
-        bytesToSet.forEachIndexed { index, byte -> blocksList[blockIndex].blockArray[index] = byte }
+        bytesToSet.forEachIndexed { index, byte -> blocksList[blockIndex].byteArray[index] = byte }
         nullifyBlockEnding(blocksList[blockIndex], bytesToSet.size)
     }
 
     private fun nullifyBlockEnding(block: HardDriveBlock, truncateIndex: Int) {
-        (truncateIndex until HardDriveBlock.BLOCK_SIZE).forEach { block.blockArray[0] = 0 }
+        (truncateIndex until HardDriveBlock.BLOCK_SIZE).forEach { block.byteArray[0] = 0 }
     }
 }
 
@@ -32,5 +32,5 @@ class HardDriveBlock {
         val BLOCK_SIZE = 1024
     }
 
-    val blockArray = MutableList<Byte>(BLOCK_SIZE) { 0 }
+    val byteArray = MutableList<Byte>(BLOCK_SIZE) { 0 }
 }

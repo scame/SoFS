@@ -20,6 +20,7 @@ class CallsDispatcher {
     }
 
     fun init() {
+        BitmapHandler(HardDrive()).getFreeBlock()
     }
 
     fun open(fileName: String) {

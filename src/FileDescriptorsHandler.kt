@@ -32,7 +32,7 @@ class FileDescriptorsHandler(val hardDrive: HardDrive) {
         val fileDescriptorsList = arrayListOf<FileDescriptor>()
 
         (0 until FD_NUMBER).forEach {
-            val fileDescriptor = parseFdFromBytesSequence(fileDescriptorsBlock.blockArray.subList(it * 8, it * 8 + 8))
+            val fileDescriptor = parseFdFromBytesSequence(fileDescriptorsBlock.byteArray.subList(it * 8, it * 8 + 8))
             fileDescriptorsList.add(fileDescriptor)
         }
 
