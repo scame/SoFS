@@ -1,5 +1,5 @@
 
-class CallsHandler {
+class CallsDispatcher {
 
     object COMMANDS {
         val WRITE = "write"
@@ -12,10 +12,14 @@ class CallsHandler {
         val DIRECTORY = "dir"
         val SAVE = "save"
         val RESTORE = "restore"
+        val INIT = "init"
     }
 
     enum class InputTypesEnum {
          NUMBERS_SEQUENCE, LETTERS_SEQUENCE
+    }
+
+    fun init() {
     }
 
     fun open(fileName: String) {

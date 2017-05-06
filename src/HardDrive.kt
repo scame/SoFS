@@ -2,6 +2,8 @@
  * simple hard drive IO simulation
  *
  * 4096 1KB blocks totally gives us 4MB disk space
+ *
+ * 4 blocks reserved to bitmap (bytes are used as bits to avoid low-level bits arithmetic)
  */
 
 class HardDrive {
@@ -10,7 +12,7 @@ class HardDrive {
         val BLOCKS_NUMBER = 4096
     }
 
-    private val blocksList = ArrayList<HardDriveBlock>(BLOCKS_NUMBER)
+    private val blocksList = MutableList(BLOCKS_NUMBER) { HardDriveBlock() }
 
     fun getBlock(blockIndex: Int) = blocksList[blockIndex]
 
@@ -20,7 +22,7 @@ class HardDrive {
     }
 
     private fun nullifyBlockEnding(block: HardDriveBlock, truncateIndex: Int) {
-        (truncateIndex until HardDriveBlock.BLOCK_SIZE).forEach { block.blockArray[it] = 0 }
+        (truncateIndex until HardDriveBlock.BLOCK_SIZE).forEach { block.blockArray[0] = 0 }
     }
 }
 
@@ -30,5 +32,5 @@ class HardDriveBlock {
         val BLOCK_SIZE = 1024
     }
 
-    val blockArray = ArrayList<Byte>(BLOCK_SIZE)
+    val blockArray = MutableList<Byte>(BLOCK_SIZE) { 0 }
 }

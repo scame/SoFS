@@ -1,18 +1,18 @@
-
-import CallsHandler.COMMANDS.CLOSE
-import CallsHandler.COMMANDS.CREATE
-import CallsHandler.COMMANDS.DIRECTORY
-import CallsHandler.COMMANDS.LSEEK
-import CallsHandler.COMMANDS.OPEN
-import CallsHandler.COMMANDS.READ
-import CallsHandler.COMMANDS.REMOVE
-import CallsHandler.COMMANDS.RESTORE
-import CallsHandler.COMMANDS.SAVE
-import CallsHandler.COMMANDS.WRITE
+import CallsDispatcher.COMMANDS.CLOSE
+import CallsDispatcher.COMMANDS.CREATE
+import CallsDispatcher.COMMANDS.DIRECTORY
+import CallsDispatcher.COMMANDS.INIT
+import CallsDispatcher.COMMANDS.LSEEK
+import CallsDispatcher.COMMANDS.OPEN
+import CallsDispatcher.COMMANDS.READ
+import CallsDispatcher.COMMANDS.REMOVE
+import CallsDispatcher.COMMANDS.RESTORE
+import CallsDispatcher.COMMANDS.SAVE
+import CallsDispatcher.COMMANDS.WRITE
 
 class Interactor {
 
-    private val callsHandler = CallsHandler()
+    private val callsHandler = CallsDispatcher()
 
     fun run() {
         while (true) {
@@ -23,21 +23,24 @@ class Interactor {
     private fun parseInputStr(inputString: String) {
         val tokens = inputString.split(" ")
 
-        when (tokens[0]) {
-            CREATE -> callsHandler.create(tokens[1])
-            REMOVE -> callsHandler.remove(tokens[1])
-            OPEN -> callsHandler.open(tokens[1])
-            CLOSE -> callsHandler.close(Integer.valueOf(tokens[1]))
-            WRITE -> callsHandler.write(Integer.valueOf(tokens[1]), when (tokens[2]) {
-                "ns" -> CallsHandler.InputTypesEnum.NUMBERS_SEQUENCE
-                "ls" -> CallsHandler.InputTypesEnum.LETTERS_SEQUENCE
-                else -> CallsHandler.InputTypesEnum.NUMBERS_SEQUENCE
-            }, Integer.valueOf(tokens[3]))
-            READ -> callsHandler.read(Integer.valueOf(tokens[1]), Integer.valueOf(tokens[2]))
-            LSEEK -> callsHandler.lseek(Integer.valueOf(tokens[1]), Integer.valueOf(tokens[2]))
-            DIRECTORY -> callsHandler.directory()
-            SAVE -> callsHandler.save(tokens[1])
-            RESTORE -> callsHandler.restore(tokens[1])
+        callsHandler.apply {
+            when (tokens[0]) {
+                CREATE -> create(tokens[1])
+                REMOVE -> remove(tokens[1])
+                OPEN -> open(tokens[1])
+                CLOSE -> close(Integer.valueOf(tokens[1]))
+                WRITE -> write(Integer.valueOf(tokens[1]), when (tokens[2]) {
+                    "ns" -> CallsDispatcher.InputTypesEnum.NUMBERS_SEQUENCE
+                    "ls" -> CallsDispatcher.InputTypesEnum.LETTERS_SEQUENCE
+                    else -> CallsDispatcher.InputTypesEnum.NUMBERS_SEQUENCE
+                }, Integer.valueOf(tokens[3]))
+                READ -> read(Integer.valueOf(tokens[1]), Integer.valueOf(tokens[2]))
+                LSEEK -> lseek(Integer.valueOf(tokens[1]), Integer.valueOf(tokens[2]))
+                DIRECTORY -> directory()
+                SAVE -> save(tokens[1])
+                RESTORE -> restore(tokens[1])
+                INIT -> init()
+            }
         }
     }
 }
