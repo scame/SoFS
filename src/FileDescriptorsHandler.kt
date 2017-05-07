@@ -15,7 +15,7 @@ import java.nio.ByteBuffer
 
 data class FileDescriptor(var fileLength: Int, var pointersBlockIndex: Int, var inUse: Boolean)
 
-class FileDescriptorsHandler(val hardDrive: HardDrive) {
+class FileDescriptorsHandler(private val hardDrive: HardDrive) {
 
     companion object {
         val DESCRIPTORS_BLOCK_INDEX = 4
@@ -23,11 +23,22 @@ class FileDescriptorsHandler(val hardDrive: HardDrive) {
         val FD_NUMBER = 128
     }
 
-    fun getFreeFileDescriptor() = getFileDescriptors().first() { !it.inUse }
+    private var inMemFileDescriptors: MutableList<FileDescriptor>? = null
+
+    fun getFileDescriptorByIndex(fdIndex: Int) = getFileDescriptors()[fdIndex]
+
+    fun getFreeFileDescriptor() = getFileDescriptors().first { !it.inUse }
 
     fun getUsedFileDescriptors() = getFileDescriptors().filter { it.inUse }
 
     private fun getFileDescriptors(): List<FileDescriptor> {
+        if (inMemFileDescriptors == null) {
+            inMemFileDescriptors = getFileDescriptorsFromDisk()
+        }
+        return inMemFileDescriptors ?: listOf()
+    }
+
+    private fun getFileDescriptorsFromDisk(): MutableList<FileDescriptor> {
         val fileDescriptorsBlock = hardDrive.getBlock(DESCRIPTORS_BLOCK_INDEX)
         val fileDescriptorsList = arrayListOf<FileDescriptor>()
 

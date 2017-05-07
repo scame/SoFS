@@ -1,9 +1,10 @@
-
+import java.util.*
 
 class BitmapHandler(val hardDrive: HardDrive) {
 
-    fun getFreeBlock(): HardDriveBlock? {
+    fun getFreeBlockWithIndex(): Pair<HardDriveBlock, Int> {
         var hardDriveBlock: HardDriveBlock? = null
+        var blockAbsoluteIndex: Int? = null
 
         kotlin.run runLabel@ {
             (0 until FsCore.BITMAP_BLOCKS_NUMBER).forEach { blockIndex ->
@@ -11,15 +12,17 @@ class BitmapHandler(val hardDrive: HardDrive) {
 
                 bitmapBlock.byteArray.forEachIndexed { indexInsideBlock, byte ->
                     if (byte.toInt() == 0) {
-                        val currentBlockIndex = HardDriveBlock.BLOCK_SIZE * blockIndex + indexInsideBlock
-                        hardDriveBlock = hardDrive.getBlock(currentBlockIndex)
+                        blockAbsoluteIndex = HardDriveBlock.BLOCK_SIZE * blockIndex + indexInsideBlock
+                        hardDriveBlock = hardDrive.getBlock(blockAbsoluteIndex ?: 0)
                         return@runLabel
                     }
                 }
             }
         }
 
-        return hardDriveBlock
+        if (hardDriveBlock == null || blockAbsoluteIndex == null) throw NoSuchElementException()
+
+        return hardDriveBlock!! to blockAbsoluteIndex!!
     }
 
     fun changeBlockInUseState(blockIndex: Int, isInUse: Boolean) {
