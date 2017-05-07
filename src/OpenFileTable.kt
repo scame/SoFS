@@ -28,5 +28,12 @@ class OpenFileTable {
         }
     }
 
-    fun getFreeOpenFileTableEntry() = openFileTableEntries.firstOrNull { !it.isInUse }
+    fun getOftEntryWithIndex(): Pair<Int, OpenFileTableEntry>? {
+        val oftEntry = openFileTableEntries.firstOrNull { !it.isInUse }
+        val oftIndex = openFileTableEntries.indexOfFirst { !it.isInUse }
+
+        if (oftEntry == null || oftIndex == -1) return null
+
+        return oftIndex to oftEntry
+    }
 }

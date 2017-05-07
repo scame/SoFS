@@ -1,3 +1,5 @@
+import java.nio.ByteBuffer
+
 /**
  * simple hard drive IO simulation
  *
@@ -24,6 +26,17 @@ class HardDrive {
     private fun nullifyBlockEnding(block: HardDriveBlock, truncateIndex: Int) {
         (truncateIndex until HardDriveBlock.BLOCK_SIZE).forEach { block.byteArray[0] = 0 }
     }
+}
+
+fun HardDriveBlock.getDataBlockIndexFromPointersBlock(dataBlockIndex: Int): Int {
+    val byteBuffer = ByteBuffer.allocate(2)
+
+    val highByte = this.byteArray[dataBlockIndex * 2]
+    val lowByte = this.byteArray[dataBlockIndex * 2 + 1]
+    byteBuffer.put(highByte)
+    byteBuffer.put(lowByte)
+
+    return byteBuffer.getShort(0).toInt()
 }
 
 class HardDriveBlock {
