@@ -23,4 +23,6 @@ class FsCore(private val fdh: FileDescriptorsHandler, private val bitmapHandler:
         fdh.releaseFileDescriptor(fileDescriptorIndex)
         println("Deletion: success")
     }
+
+    fun printFilesInfo() = directory.printFilesMetaInfo()
 }

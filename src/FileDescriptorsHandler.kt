@@ -10,7 +10,7 @@ import java.nio.ByteBuffer
  *                           one empty byte (to have power of two values)
  *
  *  consequently, we can have up to 1024 (block size) / 8 = 128 file descriptors
- *  and MAX_FILE_SIZE = 1024 (block size) / 2 (data block index) = 512 pointers to 1kb data blocks = 512kb
+ *  and MAX_FILE_SIZE = 1024 (block size) / 2 (data block index size) = 512 pointers to 1kb data blocks = 512kb
  */
 
 data class FileDescriptor(var fileLength: Int, var pointersBlockIndex: Int, var inUse: Boolean)

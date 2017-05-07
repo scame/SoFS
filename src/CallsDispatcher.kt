@@ -61,7 +61,7 @@ class CallsDispatcher {
     }
 
     fun directory() {
-        println("Directory")
+        fsCore.printFilesInfo()
     }
 
     fun save(backFileName: String) {
