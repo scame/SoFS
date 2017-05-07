@@ -1,6 +1,15 @@
 
 class CallsDispatcher {
 
+    private var fsCore: FsCore
+
+    init {
+        val hardDrive = HardDrive()
+        val fdh = FileDescriptorsHandler(hardDrive)
+        val bitmapHandler = BitmapHandler(hardDrive)
+        fsCore = FsCore(fdh, BitmapHandler(hardDrive), Directory(fdh, bitmapHandler))
+    }
+
     object COMMANDS {
         val WRITE = "write"
         val READ = "read"
@@ -32,7 +41,7 @@ class CallsDispatcher {
     }
 
     fun create(fileName: String) {
-        println("Create: $fileName")
+        fsCore.createFile(fileName)
     }
 
     fun remove(fileName: String) {

@@ -27,6 +27,11 @@ class FileDescriptorsHandler(private val hardDrive: HardDrive) {
 
     fun getFileDescriptorByIndex(fdIndex: Int) = getFileDescriptors()[fdIndex]
 
+    fun getFreeFileDescriptorWithIndex(): Pair<FileDescriptor, Int> {
+        val freeFdIndex = getFileDescriptors().indexOfFirst { !it.inUse }
+        return getFileDescriptors()[freeFdIndex] to freeFdIndex
+    }
+
     fun getFreeFileDescriptor() = getFileDescriptors().first { !it.inUse }
 
     fun getUsedFileDescriptors() = getFileDescriptors().filter { it.inUse }

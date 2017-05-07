@@ -7,7 +7,7 @@
 
 data class DirectoryEntry(var fileName: String = "", var fdIndex: Int = -1, var isInUse: Boolean)
 
-class Directory(val fdh: FileDescriptorsHandler, val bitmapHandler: BitmapHandler) {
+class Directory(private val fdh: FileDescriptorsHandler, private val bitmapHandler: BitmapHandler) {
 
     companion object {
         val MAX_ENTRIES = 16384
@@ -38,18 +38,21 @@ class Directory(val fdh: FileDescriptorsHandler, val bitmapHandler: BitmapHandle
         }
     }
 
-    fun bindDirectoryEntry(fileName: String, fdIndex: Int): String {
+    fun bindDirectoryEntry(fileName: String, fdIndex: Int) {
         if (directoryEntriesList.firstOrNull { it.fileName == fileName } != null) {
-            return "Error: file already exists"
+            println("Error: file already exists"); return
         }
 
         val freeDirectoryEntry = directoryEntriesList.firstOrNull { !it.isInUse }
-                                 ?: return "Error: no free directory slots"
+        if (freeDirectoryEntry == null) {
+            println("Error: no free directory slots"); return
+        }
 
+        fdh.getFileDescriptorByIndex(fdIndex).inUse = true
         freeDirectoryEntry.fileName = fileName
         freeDirectoryEntry.fdIndex = fdIndex
         freeDirectoryEntry.isInUse = true
-        return "Bind: success"
+        println("Bind: success")
     }
 
     fun getDirectoryEntry(fileName: String) = directoryEntriesList.first { it.fileName == fileName }
