@@ -16,7 +16,7 @@ class HardDrive {
 
     fun getBlock(blockIndex: Int) = blocksList[blockIndex]
 
-    fun setBlock(blockIndex: Int, bytesToSet: ArrayList<Byte>) {
+    fun setBlock(blockIndex: Int, bytesToSet: List<Byte> = List<Byte>(HardDriveBlock.BLOCK_SIZE) { 0 }) {
         bytesToSet.forEachIndexed { index, byte -> blocksList[blockIndex].byteArray[index] = byte }
         nullifyBlockEnding(blocksList[blockIndex], bytesToSet.size)
     }

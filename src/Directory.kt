@@ -7,6 +7,12 @@
 
 data class DirectoryEntry(var fileName: String = "", var fdIndex: Int = -1, var isInUse: Boolean)
 
+fun DirectoryEntry.clear() {
+    this.fileName = ""
+    this.fdIndex = -1
+    this.isInUse = false
+}
+
 class Directory(private val fdh: FileDescriptorsHandler, private val bitmapHandler: BitmapHandler) {
 
     companion object {
@@ -48,14 +54,17 @@ class Directory(private val fdh: FileDescriptorsHandler, private val bitmapHandl
             println("Error: no free directory slots"); return
         }
 
-        fdh.getFileDescriptorByIndex(fdIndex).inUse = true
         freeDirectoryEntry.fileName = fileName
         freeDirectoryEntry.fdIndex = fdIndex
         freeDirectoryEntry.isInUse = true
+
+        fdh.getFileDescriptorByIndex(fdIndex).inUse = true
+        fdh.getFileDescriptorByIndex(fdIndex).pointersBlockIndex = bitmapHandler.getFreeBlockWithIndex().second
+
         println("Bind: success")
     }
 
-    fun getDirectoryEntry(fileName: String) = directoryEntriesList.first { it.fileName == fileName }
+    fun getDirectoryEntry(fileName: String) = directoryEntriesList.firstOrNull() { it.fileName == fileName }
 
     fun printFilesMetaInfo() {
         directoryEntriesList.filter { it.isInUse }.forEach {

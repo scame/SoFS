@@ -10,12 +10,18 @@ import java.nio.ByteBuffer
  *                           one empty byte (to have power of two values)
  *
  *  consequently, we can have up to 1024 (block size) / 8 = 128 file descriptors
- *  and MAX_FILE_SIZE = 1024 (block size) / 16 (data block index) = 64 pointers to 1kb data blocks = 64kb
+ *  and MAX_FILE_SIZE = 1024 (block size) / 2 (data block index) = 512 pointers to 1kb data blocks = 512kb
  */
 
 data class FileDescriptor(var fileLength: Int, var pointersBlockIndex: Int, var inUse: Boolean)
 
-class FileDescriptorsHandler(private val hardDrive: HardDrive) {
+fun FileDescriptor.clear() {
+    this.inUse = false
+    this.fileLength = 0
+    this.pointersBlockIndex = -1
+}
+
+class FileDescriptorsHandler(private val hardDrive: HardDrive, private val bitmapHandler: BitmapHandler) {
 
     companion object {
         val DESCRIPTORS_BLOCK_INDEX = 4
@@ -24,6 +30,32 @@ class FileDescriptorsHandler(private val hardDrive: HardDrive) {
     }
 
     private var inMemFileDescriptors: MutableList<FileDescriptor>? = null
+
+    fun releaseFileDescriptor(fdIndex: Int) {
+        val fd = getFileDescriptors()[fdIndex]
+        val pointersBlock = hardDrive.getBlock(fd.pointersBlockIndex)
+
+        var numberOfDataBlocksUsed = fd.fileLength / HardDriveBlock.BLOCK_SIZE
+        if (fd.fileLength % HardDriveBlock.BLOCK_SIZE != 0) ++numberOfDataBlocksUsed
+
+        (0 until numberOfDataBlocksUsed).forEach {
+            val associatedDataBlockIndex = getDataBlockIndexFromPointersBlock(it, pointersBlock)
+            hardDrive.setBlock(associatedDataBlockIndex)
+            bitmapHandler.changeBlockInUseState(associatedDataBlockIndex, false)
+        }
+
+        fd.clear()
+    }
+
+    private fun getDataBlockIndexFromPointersBlock(blockIndex: Int, pointersBlock: HardDriveBlock): Int {
+        val highByte = pointersBlock.byteArray[blockIndex * 2]
+        val lowByte = pointersBlock.byteArray[blockIndex * 2 + 1]
+
+        val byteBuffer = ByteBuffer.allocate(2)
+        byteBuffer.put(highByte)
+        byteBuffer.put(lowByte)
+        return byteBuffer.getShort(0).toInt()
+    }
 
     fun getFileDescriptorByIndex(fdIndex: Int) = getFileDescriptors()[fdIndex]
 
@@ -34,7 +66,7 @@ class FileDescriptorsHandler(private val hardDrive: HardDrive) {
 
     fun getFreeFileDescriptor() = getFileDescriptors().first { !it.inUse }
 
-    fun getUsedFileDescriptors() = getFileDescriptors().filter { it.inUse }
+    fun getInUseFileDescriptors() = getFileDescriptors().filter { it.inUse }
 
     private fun getFileDescriptors(): List<FileDescriptor> {
         if (inMemFileDescriptors == null) {

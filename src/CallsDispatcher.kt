@@ -5,8 +5,8 @@ class CallsDispatcher {
 
     init {
         val hardDrive = HardDrive()
-        val fdh = FileDescriptorsHandler(hardDrive)
         val bitmapHandler = BitmapHandler(hardDrive)
+        val fdh = FileDescriptorsHandler(hardDrive, bitmapHandler)
         fsCore = FsCore(fdh, BitmapHandler(hardDrive), Directory(fdh, bitmapHandler))
     }
 
@@ -45,7 +45,7 @@ class CallsDispatcher {
     }
 
     fun remove(fileName: String) {
-        println("Remove: $fileName")
+        fsCore.removeFile(fileName)
     }
 
     fun write(fd: Int, inputTypesEnum: InputTypesEnum, bytesNumber: Int) {
