@@ -28,6 +28,14 @@ class HardDrive {
     }
 }
 
+fun HardDriveBlock.setPointerToFreeDataBlock(pointerBlockIndex: Int, freeDataBlockIndex: Int) {
+    val highByte = freeDataBlockIndex.toByte()
+    val lowByte = freeDataBlockIndex.ushr(8).toByte()
+
+    this.byteArray[pointerBlockIndex * 2] = highByte
+    this.byteArray[pointerBlockIndex * 2 + 1] = lowByte
+}
+
 fun HardDriveBlock.getDataBlockIndexFromPointersBlock(dataBlockIndex: Int): Int {
     val byteBuffer = ByteBuffer.allocate(2)
 

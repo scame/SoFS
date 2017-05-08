@@ -10,6 +10,48 @@ class FsCore(private val fdh: FileDescriptorsHandler, private val bitmapHandler:
         val BITMAP_BLOCKS_NUMBER = 4
     }
 
+    fun write(fdIndex: Int, bytesToWriteNumber: Int) {
+        val oftEntry = openFileTable.getOftEntryByFdIndex(fdIndex)
+        if (oftEntry == null) {
+            println("Error: file is not opened"); return
+        }
+
+        val randomArray = mutableListOf<Byte>()
+        (0 until bytesToWriteNumber).forEach { randomArray.add(((it + 1) % 120).toByte()) }
+
+        var positionInBuffer = oftEntry.currentPosition % HardDriveBlock.BLOCK_SIZE
+
+        if (oftEntry.currentPosition + bytesToWriteNumber > fdh.getFileDescriptorByIndex(fdIndex).fileLength) {
+            val numberOfBlocksToAllocate = (oftEntry.currentPosition + bytesToWriteNumber -
+                    fdh.getFileDescriptorByIndex(fdIndex).fileLength) / HardDriveBlock.BLOCK_SIZE + 1
+            preallocateDataBlocks(numberOfBlocksToAllocate, fdIndex)
+        }
+
+        randomArray.forEach { byte ->
+            oftEntry.readWriteBuffer.put(positionInBuffer++, byte)
+            ++oftEntry.currentPosition
+
+            if (positionInBuffer >= HardDriveBlock.BLOCK_SIZE) {
+                val dataBlockWithIndex = getDataBlockFromFdWithIndex(fdIndex, oftEntry.currentPosition.getBlockIndexFromPosition() - 1)
+                hardDrive.setBlock(dataBlockWithIndex.first, oftEntry.readWriteBuffer.array().toList())
+                val nextDataBlockWithIndex = getDataBlockFromFdWithIndex(fdIndex, oftEntry.currentPosition.getBlockIndexFromPosition())
+                oftEntry.readWriteBuffer.clear()
+                oftEntry.readWriteBuffer.put(nextDataBlockWithIndex.second.byteArray.toByteArray())
+                positionInBuffer = 0
+            }
+        }
+    }
+
+    private fun preallocateDataBlocks(numberOfBlocksToAllocate: Int, fdIndex: Int) {
+        val fileLength = fdh.getFileDescriptorByIndex(fdIndex).fileLength
+        var alreadyAllocated = if (fileLength == 0) 0 else fileLength / HardDriveBlock.BLOCK_SIZE + 1
+        val pointersBlock = hardDrive.getBlock(fdh.getFileDescriptorByIndex(fdIndex).pointersBlockIndex)
+
+        (0 until numberOfBlocksToAllocate).forEach {
+            pointersBlock.setPointerToFreeDataBlock(++alreadyAllocated, bitmapHandler.getFreeBlockWithIndex().second)
+        }
+    }
+
     fun read(fdIndex: Int, bytesNumber: Int) {
         val oftEntry = openFileTable.getOftEntryByFdIndex(fdIndex)
         if (oftEntry == null) {
@@ -38,14 +80,14 @@ class FsCore(private val fdh: FileDescriptorsHandler, private val bitmapHandler:
     }
 
     fun isSomethingToReadLeft(counter: Int, bytesNumber: Int, oftEntry: OpenFileTableEntry, fdIndex: Int) =
-        counter < bytesNumber && counter + oftEntry.currentPosition < fdh.getFileDescriptorByIndex(fdIndex).fileLength
+            counter < bytesNumber && counter + oftEntry.currentPosition < fdh.getFileDescriptorByIndex(fdIndex).fileLength
 
 
     fun getNextDataBlock(positionInFile: Int, fdIndex: Int): ByteArray {
         val dataBlockNumber = positionInFile / HardDriveBlock.BLOCK_SIZE
-        val nextDataBlock = getDataBlockFromFd(fdIndex, dataBlockNumber)
+        val nextDataBlock = getDataBlockFromFdWithIndex(fdIndex, dataBlockNumber)
 
-        return nextDataBlock.byteArray.toByteArray()
+        return nextDataBlock.second.byteArray.toByteArray()
     }
 
     fun createFile(fileName: String) {
@@ -77,7 +119,7 @@ class FsCore(private val fdh: FileDescriptorsHandler, private val bitmapHandler:
 
         oftEntryWithIndex.second.isInUse = true
         oftEntryWithIndex.second.fdIndex = fdIndex
-        oftEntryWithIndex.second.readWriteBuffer.put(getDataBlockFromFd(fdIndex, 0).byteArray.toByteArray())
+        oftEntryWithIndex.second.readWriteBuffer.put(getDataBlockFromFdWithIndex(fdIndex, 0).second.byteArray.toByteArray())
 
         return oftEntryWithIndex.first
     }
@@ -100,11 +142,11 @@ class FsCore(private val fdh: FileDescriptorsHandler, private val bitmapHandler:
         hardDrive.setBlock(dataBlockIndex, oftEntry.readWriteBuffer.array().toList())
     }
 
-    private fun getDataBlockFromFd(fdIndex: Int, dataBlockNumber: Int): HardDriveBlock {
+    private fun getDataBlockFromFdWithIndex(fdIndex: Int, dataBlockNumber: Int): Pair<Int, HardDriveBlock> {
         val pointersBlock = hardDrive.getBlock(fdh.getFileDescriptorByIndex(fdIndex).pointersBlockIndex)
         val dataBlockIndex = pointersBlock.getDataBlockIndexFromPointersBlock(dataBlockNumber)
 
-        return hardDrive.getBlock(dataBlockIndex)
+        return dataBlockIndex to hardDrive.getBlock(dataBlockIndex)
     }
 
     fun printFilesInfo() = directory.printFilesMetaInfo()
