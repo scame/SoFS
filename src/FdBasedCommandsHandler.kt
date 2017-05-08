@@ -118,8 +118,6 @@ class FdBasedCommandsHandler(val openFileTable: OpenFileTable, val fdh: FileDesc
         }
     }
 
-    // it's possible that block should be written to disk when bufferOffset goes beyond the limit
-    // (if some modifications before were done)
     fun read(fdIndex: Int, bytesNumber: Int) {
         val oftEntry = openFileTable.getOftEntryByFdIndex(fdIndex)
         if (oftEntry == null) {
@@ -137,7 +135,10 @@ class FdBasedCommandsHandler(val openFileTable: OpenFileTable, val fdh: FileDesc
             ++counter
 
             if (bufferOffset >= HardDriveBlock.BLOCK_SIZE && isSomethingToReadLeft(counter, bytesNumber, oftEntry)) {
-                oftEntry.rewriteBuffer(getNextDataBlock(oftEntry))
+                // it's possible that block should be written back to disk when bufferOffset goes beyond the limit
+                // (if some modifications were done before)
+                // better solution is to use modified bit
+                iterateToNextDataBlock(oftEntry)
                 bufferOffset = 0
             }
         }
