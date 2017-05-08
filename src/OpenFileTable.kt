@@ -14,6 +14,16 @@ fun OpenFileTableEntry.clear() {
     this.isInUse = false
 }
 
+fun OpenFileTableEntry.rewriteBuffer(hardDriveBlock: HardDriveBlock) {
+    this.readWriteBuffer.clear()
+    this.readWriteBuffer.put(hardDriveBlock.bytes.toByteArray())
+}
+
+fun OpenFileTableEntry.putIntoBuffer(bufferOffset: Int, byte: Byte) {
+    this.readWriteBuffer.put(bufferOffset, byte)
+    ++this.currentPosition
+}
+
 class OpenFileTable {
 
     companion object {
@@ -30,7 +40,7 @@ class OpenFileTable {
 
     fun getOftEntryByFdIndex(fdIndex: Int) = openFileTableEntries.firstOrNull { it.fdIndex == fdIndex }
 
-    fun getOftEntryWithIndex(): Pair<Int, OpenFileTableEntry>? {
+    fun getFreeOftEntryWithIndex(): Pair<Int, OpenFileTableEntry>? {
         val oftEntry = openFileTableEntries.firstOrNull { !it.isInUse }
         val oftIndex = openFileTableEntries.indexOfFirst { !it.isInUse }
 

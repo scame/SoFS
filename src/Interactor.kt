@@ -29,11 +29,7 @@ class Interactor {
                 REMOVE -> remove(tokens[1])
                 OPEN -> open(tokens[1])
                 CLOSE -> close(Integer.valueOf(tokens[1]))
-                WRITE -> write(Integer.valueOf(tokens[1]), when (tokens[2]) {
-                    "ns" -> CallsDispatcher.InputTypesEnum.NUMBERS_SEQUENCE
-                    "ls" -> CallsDispatcher.InputTypesEnum.LETTERS_SEQUENCE
-                    else -> CallsDispatcher.InputTypesEnum.NUMBERS_SEQUENCE
-                }, Integer.valueOf(tokens[3]))
+                WRITE -> write(Integer.valueOf(tokens[1]), Integer.valueOf(tokens[2]))
                 READ -> read(Integer.valueOf(tokens[1]), Integer.valueOf(tokens[2]))
                 LSEEK -> lseek(Integer.valueOf(tokens[1]), Integer.valueOf(tokens[2]))
                 DIRECTORY -> directory()

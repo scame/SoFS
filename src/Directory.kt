@@ -1,5 +1,5 @@
 /**
- * fundamentally, directory is just a file, so it's size limited to 64KB
+ * fundamentally, directory is just a file, so it's size limited to 512KB
  * let's limit file name to 16bits, fd will take 8bits and 8bits will be given to in use flag
  *
  * accordingly, directory can have up to 524288 (max file size in bytes) / 4 = 131072 entries

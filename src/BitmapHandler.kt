@@ -7,7 +7,7 @@ class BitmapHandler(val hardDrive: HardDrive) {
         var blockAbsoluteIndex: Int? = null
 
         kotlin.run runLabel@ {
-            (0 until FsCore.BITMAP_BLOCKS_NUMBER).forEach { blockIndex ->
+            (0 until HardDrive.BITMAP_BLOCKS_NUMBER).forEach { blockIndex ->
                 val bitmapBlock = hardDrive.getBlock(blockIndex)
 
                 bitmapBlock.bytes.forEachIndexed { indexInsideBlock, byte ->

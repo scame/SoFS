@@ -2,7 +2,11 @@ class CallsDispatcher {
 
     private val dbh: DiskBackupHandler
 
-    private val fsCore: FsCore
+    private val rootDir: Directory
+
+    private val nameBasedCommandsHandler: NameBasedCommandsHandler
+
+    private val fdBasedCommandsHandler: FdBasedCommandsHandler
 
     init {
         val hardDrive = HardDrive()
@@ -10,7 +14,9 @@ class CallsDispatcher {
         val fdh = FileDescriptorsHandler(hardDrive, bitmapHandler)
         val openFileTable = OpenFileTable()
         dbh = DiskBackupHandler(hardDrive)
-        fsCore = FsCore(fdh, BitmapHandler(hardDrive), Directory(fdh, bitmapHandler), openFileTable, hardDrive)
+        rootDir = Directory(fdh, bitmapHandler)
+        nameBasedCommandsHandler = NameBasedCommandsHandler(fdh, rootDir, openFileTable)
+        fdBasedCommandsHandler = FdBasedCommandsHandler(openFileTable, fdh, hardDrive, bitmapHandler)
     }
 
     object COMMANDS {
@@ -27,44 +33,41 @@ class CallsDispatcher {
         val INIT = "init"
     }
 
-    enum class InputTypesEnum {
-         NUMBERS_SEQUENCE, LETTERS_SEQUENCE
-    }
-
     fun init() {
-
+        // real initialization goes into init block to avoid optional types handling
+        println("initialization: success")
     }
 
     fun open(fileName: String) {
-        fsCore.openFile(fileName)
+        nameBasedCommandsHandler.openFile(fileName)
     }
 
     fun close(fd: Int) {
-        fsCore.closeFile(fd)
+        fdBasedCommandsHandler.closeFile(fd)
     }
 
     fun create(fileName: String) {
-        fsCore.createFile(fileName)
+        nameBasedCommandsHandler.createFile(fileName)
     }
 
     fun remove(fileName: String) {
-        fsCore.removeFile(fileName)
+        nameBasedCommandsHandler.removeFile(fileName)
     }
 
-    fun write(fd: Int, inputTypesEnum: InputTypesEnum, bytesNumber: Int) {
-        println("Write: $fd ${inputTypesEnum.name} $bytesNumber")
+    fun write(fd: Int, bytesNumber: Int) {
+        fdBasedCommandsHandler.write(fd, bytesNumber)
     }
 
     fun read(fd: Int, bytesNumber: Int) {
-        println("Read: $fd $bytesNumber")
+        fdBasedCommandsHandler.read(fd, bytesNumber)
     }
 
     fun lseek(fd: Int, position: Int) {
-        println("Lseek: $fd $position")
+        fdBasedCommandsHandler.lseek(fd, position)
     }
 
     fun directory() {
-        fsCore.printFilesInfo()
+        rootDir.printFilesMetaInfo()
     }
 
     fun save(backFileName: String) {

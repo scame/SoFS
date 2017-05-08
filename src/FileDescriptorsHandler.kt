@@ -31,6 +31,13 @@ class FileDescriptorsHandler(private val hardDrive: HardDrive, private val bitma
 
     private var inMemFileDescriptors: MutableList<FileDescriptor>? = null
 
+    fun getDataBlockFromFdWithIndex(fdIndex: Int, dataBlockNumber: Int): Pair<Int, HardDriveBlock> {
+        val pointersBlock = hardDrive.getBlock(getFileDescriptorByIndex(fdIndex).pointersBlockIndex)
+        val dataBlockIndex = pointersBlock.getDataBlockIndexFromPointersBlock(dataBlockNumber)
+
+        return dataBlockIndex to hardDrive.getBlock(dataBlockIndex)
+    }
+
     fun releaseFileDescriptor(fdIndex: Int) {
         val fd = getFileDescriptors()[fdIndex]
         val pointersBlock = hardDrive.getBlock(fd.pointersBlockIndex)
@@ -39,7 +46,7 @@ class FileDescriptorsHandler(private val hardDrive: HardDrive, private val bitma
         if (fd.fileLength % HardDriveBlock.BLOCK_SIZE != 0) ++numberOfDataBlocksUsed
 
         (0 until numberOfDataBlocksUsed).forEach {
-            val associatedDataBlockIndex = getDataBlockIndexFromPointersBlock(it, pointersBlock)
+            val associatedDataBlockIndex = pointersBlock.getDataBlockIndexFromPointersBlock(it)
             hardDrive.setBlock(associatedDataBlockIndex)
             bitmapHandler.changeBlockInUseState(associatedDataBlockIndex, false)
         }
@@ -47,26 +54,16 @@ class FileDescriptorsHandler(private val hardDrive: HardDrive, private val bitma
         fd.clear()
     }
 
-    private fun getDataBlockIndexFromPointersBlock(blockIndex: Int, pointersBlock: HardDriveBlock): Int {
-        val highByte = pointersBlock.bytes[blockIndex * 2]
-        val lowByte = pointersBlock.bytes[blockIndex * 2 + 1]
-
-        val byteBuffer = ByteBuffer.allocate(2)
-        byteBuffer.put(highByte)
-        byteBuffer.put(lowByte)
-        return byteBuffer.getShort(0).toInt()
-    }
-
     fun getFileDescriptorByIndex(fdIndex: Int) = getFileDescriptors()[fdIndex]
 
-    fun getFreeFileDescriptorWithIndex(): Pair<FileDescriptor, Int> {
+    fun getFreeFileDescriptorWithIndex(): Pair<Int, FileDescriptor>? {
         val freeFdIndex = getFileDescriptors().indexOfFirst { !it.inUse }
-        return getFileDescriptors()[freeFdIndex] to freeFdIndex
+        if (freeFdIndex == -1) return null
+
+        return freeFdIndex to getFileDescriptors()[freeFdIndex]
     }
 
     fun getFreeFileDescriptor() = getFileDescriptors().first { !it.inUse }
-
-    fun getInUseFileDescriptors() = getFileDescriptors().filter { it.inUse }
 
     private fun getFileDescriptors(): List<FileDescriptor> {
         if (inMemFileDescriptors == null) {
@@ -90,7 +87,7 @@ class FileDescriptorsHandler(private val hardDrive: HardDrive, private val bitma
     private fun parseFdFromBytesSequence(eightBytesList: MutableList<Byte>): FileDescriptor {
         val fileLength = readLengthValue(eightBytesList.subList(0, 4))
         val pointersBlockIndex = readBlockIndex(eightBytesList.subList(4, 6))
-        val isUsed = readIsUsedValue(eightBytesList[7])
+        val isUsed = readIsUsedValue(eightBytesList[6])
 
         return FileDescriptor(fileLength, pointersBlockIndex, isUsed)
     }

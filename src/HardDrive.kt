@@ -6,19 +6,20 @@ import java.nio.ByteBuffer
  * 4096 1KB blocks totally gives us 4MB disk space
  *
  * 4 blocks reserved to bitmap (bytes are used as bits to avoid low-level bits arithmetic)
+ * 1 block goes for file descriptors table
  */
 
 class HardDrive {
 
     companion object {
         val BLOCKS_NUMBER = 4096
+
+        val BITMAP_BLOCKS_NUMBER = 4
     }
 
     private val blocksList = MutableList(BLOCKS_NUMBER) { HardDriveBlock() }
 
     fun restoreFromExternalSource(bytes: ByteArray) {
-        println("Got ${bytes.size} bytes")
-
         bytes.forEachIndexed { index, byte ->
             val blockIndex = index / HardDriveBlock.BLOCK_SIZE
             val indexInsideBlock = index % HardDriveBlock.BLOCK_SIZE
@@ -48,27 +49,6 @@ class HardDrive {
     }
 }
 
-fun HardDriveBlock.setPointerToFreeDataBlock(pointerBlockIndex: Int, freeDataBlockIndex: Int) {
-    val highByte = freeDataBlockIndex.toByte()
-    val lowByte = freeDataBlockIndex.ushr(8).toByte()
-
-    this.bytes[pointerBlockIndex * 2] = highByte
-    this.bytes[pointerBlockIndex * 2 + 1] = lowByte
-}
-
-fun HardDriveBlock.getDataBlockIndexFromPointersBlock(dataBlockIndex: Int): Int {
-    val byteBuffer = ByteBuffer.allocate(2)
-
-    val highByte = this.bytes[dataBlockIndex * 2]
-    val lowByte = this.bytes[dataBlockIndex * 2 + 1]
-    byteBuffer.put(highByte)
-    byteBuffer.put(lowByte)
-
-    return byteBuffer.getShort(0).toInt()
-}
-
-fun Int.getBlockIndexFromPosition() = this / HardDriveBlock.BLOCK_SIZE
-
 class HardDriveBlock {
 
     companion object {
@@ -77,3 +57,24 @@ class HardDriveBlock {
 
     val bytes = MutableList<Byte>(BLOCK_SIZE) { 0 }
 }
+
+fun HardDriveBlock.setPointerToFreeDataBlock(indexInsidePointersBlock: Int, freeDataBlockIndex: Int) {
+    val highByte = freeDataBlockIndex.toByte()
+    val lowByte = freeDataBlockIndex.ushr(8).toByte()
+
+    this.bytes[indexInsidePointersBlock * 2] = highByte
+    this.bytes[indexInsidePointersBlock * 2 + 1] = lowByte
+}
+
+fun HardDriveBlock.getDataBlockIndexFromPointersBlock(indexInsidePointersBlock: Int): Int {
+    val byteBuffer = ByteBuffer.allocate(2)
+
+    val highByte = this.bytes[indexInsidePointersBlock * 2]
+    val lowByte = this.bytes[indexInsidePointersBlock * 2 + 1]
+    byteBuffer.put(highByte)
+    byteBuffer.put(lowByte)
+
+    return byteBuffer.getShort(0).toInt()
+}
+
+fun Int.getBlockIndexFromPosition() = this / HardDriveBlock.BLOCK_SIZE
