@@ -10,6 +10,29 @@ class FsCore(private val fdh: FileDescriptorsHandler, private val bitmapHandler:
         val BITMAP_BLOCKS_NUMBER = 4
     }
 
+    fun lseek(fdIndex: Int, position: Int) {
+        val oftEntry = openFileTable.getOftEntryByFdIndex(fdIndex)
+        if (oftEntry == null) {
+            println("Error: file is not opened"); return
+        }
+
+        if (position > fdh.getFileDescriptorByIndex(fdIndex).fileLength) {
+            println("Error: file length is less than specified position"); return
+        }
+
+        if (oftEntry.currentPosition + position > HardDriveBlock.BLOCK_SIZE) {
+            val dataBlockWithIndex = getDataBlockFromFdWithIndex(fdIndex, oftEntry.currentPosition.getBlockIndexFromPosition())
+            hardDrive.setBlock(dataBlockWithIndex.first, oftEntry.readWriteBuffer.array().toList())
+
+            val newDataBlockWithIndex = getDataBlockFromFdWithIndex(fdIndex, position.getBlockIndexFromPosition())
+            oftEntry.readWriteBuffer.clear()
+            oftEntry.readWriteBuffer.put(newDataBlockWithIndex.second.bytes.toByteArray())
+        }
+
+        oftEntry.currentPosition = position
+        println("Lseek: new position $position")
+    }
+
     fun write(fdIndex: Int, bytesToWriteNumber: Int) {
         val oftEntry = openFileTable.getOftEntryByFdIndex(fdIndex)
         if (oftEntry == null) {
@@ -36,7 +59,7 @@ class FsCore(private val fdh: FileDescriptorsHandler, private val bitmapHandler:
                 hardDrive.setBlock(dataBlockWithIndex.first, oftEntry.readWriteBuffer.array().toList())
                 val nextDataBlockWithIndex = getDataBlockFromFdWithIndex(fdIndex, oftEntry.currentPosition.getBlockIndexFromPosition())
                 oftEntry.readWriteBuffer.clear()
-                oftEntry.readWriteBuffer.put(nextDataBlockWithIndex.second.byteArray.toByteArray())
+                oftEntry.readWriteBuffer.put(nextDataBlockWithIndex.second.bytes.toByteArray())
                 positionInBuffer = 0
             }
         }
@@ -87,7 +110,7 @@ class FsCore(private val fdh: FileDescriptorsHandler, private val bitmapHandler:
         val dataBlockNumber = positionInFile / HardDriveBlock.BLOCK_SIZE
         val nextDataBlock = getDataBlockFromFdWithIndex(fdIndex, dataBlockNumber)
 
-        return nextDataBlock.second.byteArray.toByteArray()
+        return nextDataBlock.second.bytes.toByteArray()
     }
 
     fun createFile(fileName: String) {
@@ -119,7 +142,7 @@ class FsCore(private val fdh: FileDescriptorsHandler, private val bitmapHandler:
 
         oftEntryWithIndex.second.isInUse = true
         oftEntryWithIndex.second.fdIndex = fdIndex
-        oftEntryWithIndex.second.readWriteBuffer.put(getDataBlockFromFdWithIndex(fdIndex, 0).second.byteArray.toByteArray())
+        oftEntryWithIndex.second.readWriteBuffer.put(getDataBlockFromFdWithIndex(fdIndex, 0).second.bytes.toByteArray())
 
         return oftEntryWithIndex.first
     }

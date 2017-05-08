@@ -48,8 +48,8 @@ class FileDescriptorsHandler(private val hardDrive: HardDrive, private val bitma
     }
 
     private fun getDataBlockIndexFromPointersBlock(blockIndex: Int, pointersBlock: HardDriveBlock): Int {
-        val highByte = pointersBlock.byteArray[blockIndex * 2]
-        val lowByte = pointersBlock.byteArray[blockIndex * 2 + 1]
+        val highByte = pointersBlock.bytes[blockIndex * 2]
+        val lowByte = pointersBlock.bytes[blockIndex * 2 + 1]
 
         val byteBuffer = ByteBuffer.allocate(2)
         byteBuffer.put(highByte)
@@ -80,7 +80,7 @@ class FileDescriptorsHandler(private val hardDrive: HardDrive, private val bitma
         val fileDescriptorsList = arrayListOf<FileDescriptor>()
 
         (0 until FD_NUMBER).forEach {
-            val fileDescriptor = parseFdFromBytesSequence(fileDescriptorsBlock.byteArray.subList(it * 8, it * 8 + 8))
+            val fileDescriptor = parseFdFromBytesSequence(fileDescriptorsBlock.bytes.subList(it * 8, it * 8 + 8))
             fileDescriptorsList.add(fileDescriptor)
         }
 

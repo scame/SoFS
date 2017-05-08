@@ -10,7 +10,7 @@ class BitmapHandler(val hardDrive: HardDrive) {
             (0 until FsCore.BITMAP_BLOCKS_NUMBER).forEach { blockIndex ->
                 val bitmapBlock = hardDrive.getBlock(blockIndex)
 
-                bitmapBlock.byteArray.forEachIndexed { indexInsideBlock, byte ->
+                bitmapBlock.bytes.forEachIndexed { indexInsideBlock, byte ->
                     if (byte.toInt() == 0) {
                         blockAbsoluteIndex = HardDriveBlock.BLOCK_SIZE * blockIndex + indexInsideBlock
                         hardDriveBlock = hardDrive.getBlock(blockAbsoluteIndex ?: 0)
@@ -27,7 +27,7 @@ class BitmapHandler(val hardDrive: HardDrive) {
 
     fun changeBlockInUseState(blockIndex: Int, isInUse: Boolean) {
         val bitmapIndexPair = findBitmapIndexPair(blockIndex)
-        hardDrive.getBlock(bitmapIndexPair.first).byteArray[bitmapIndexPair.second]= if (isInUse) 1 else 0
+        hardDrive.getBlock(bitmapIndexPair.first).bytes[bitmapIndexPair.second]= if (isInUse) 1 else 0
     }
 
     private fun findBitmapIndexPair(blockIndex: Int): Pair<Int, Int> {
