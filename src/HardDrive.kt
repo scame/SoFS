@@ -39,6 +39,8 @@ fun HardDriveBlock.getDataBlockIndexFromPointersBlock(dataBlockIndex: Int): Int 
     return byteBuffer.getShort(0).toInt()
 }
 
+fun Int.getBlockIndexFromPosition() = this / HardDriveBlock.BLOCK_SIZE
+
 class HardDriveBlock {
 
     companion object {

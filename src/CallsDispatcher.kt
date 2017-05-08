@@ -1,3 +1,4 @@
+import java.nio.ByteBuffer
 
 class CallsDispatcher {
 
@@ -7,7 +8,8 @@ class CallsDispatcher {
         val hardDrive = HardDrive()
         val bitmapHandler = BitmapHandler(hardDrive)
         val fdh = FileDescriptorsHandler(hardDrive, bitmapHandler)
-        fsCore = FsCore(fdh, BitmapHandler(hardDrive), Directory(fdh, bitmapHandler))
+        val openFileTable = OpenFileTable()
+        fsCore = FsCore(fdh, BitmapHandler(hardDrive), Directory(fdh, bitmapHandler), openFileTable, hardDrive)
     }
 
     object COMMANDS {
@@ -33,11 +35,11 @@ class CallsDispatcher {
     }
 
     fun open(fileName: String) {
-        println("Open: $fileName")
+        fsCore.openFile(fileName)
     }
 
     fun close(fd: Int) {
-        println("Close: $fd")
+        fsCore.closeFile(fd)
     }
 
     fun create(fileName: String) {

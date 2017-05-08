@@ -20,13 +20,15 @@ class OpenFileTable {
         val OFT_SIZE = 10
     }
 
-    val openFileTableEntries = mutableListOf<OpenFileTableEntry>()
+    private val openFileTableEntries = mutableListOf<OpenFileTableEntry>()
 
     init {
         (0 until OFT_SIZE).forEach {
             openFileTableEntries.add(OpenFileTableEntry(ByteBuffer.allocate(HardDriveBlock.BLOCK_SIZE), 0, -1, false))
         }
     }
+
+    fun getOftEntryByFdIndex(fdIndex: Int) = openFileTableEntries.firstOrNull { it.fdIndex == fdIndex }
 
     fun getOftEntryWithIndex(): Pair<Int, OpenFileTableEntry>? {
         val oftEntry = openFileTableEntries.firstOrNull { !it.isInUse }

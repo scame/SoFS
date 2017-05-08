@@ -39,6 +39,22 @@ class FsCore(private val fdh: FileDescriptorsHandler, private val bitmapHandler:
         return oftEntryWithIndex.first
     }
 
+    fun closeFile(fdIndex: Int) {
+        val oftEntry = openFileTable.getOftEntryByFdIndex(fdIndex)
+        if (oftEntry == null) { println("Error: no such open file"); return }
+
+        writeBufferToDisk(oftEntry)
+        oftEntry.clear()
+    }
+
+    private fun writeBufferToDisk(oftEntry: OpenFileTableEntry) {
+        val pointersBlock = hardDrive.getBlock(fdh.getFileDescriptorByIndex(oftEntry.fdIndex).pointersBlockIndex)
+
+        val blockIndexFromPosition = oftEntry.currentPosition.getBlockIndexFromPosition()
+        val dataBlockIndex = pointersBlock.getDataBlockIndexFromPointersBlock(blockIndexFromPosition)
+        hardDrive.setBlock(dataBlockIndex, oftEntry.readWriteBuffer.array().toList())
+    }
+
     private fun getFirstDataBlockFromFd(fdIndex: Int): HardDriveBlock {
         val pointersBlock = hardDrive.getBlock(fdh.getFileDescriptorByIndex(fdIndex).pointersBlockIndex)
         val dataBlockIndex = pointersBlock.getDataBlockIndexFromPointersBlock(0)
