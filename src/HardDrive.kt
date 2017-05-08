@@ -16,6 +16,26 @@ class HardDrive {
 
     private val blocksList = MutableList(BLOCKS_NUMBER) { HardDriveBlock() }
 
+    fun restoreFromExternalSource(bytes: ByteArray) {
+        println("Got ${bytes.size} bytes")
+
+        bytes.forEachIndexed { index, byte ->
+            val blockIndex = index / HardDriveBlock.BLOCK_SIZE
+            val indexInsideBlock = index % HardDriveBlock.BLOCK_SIZE
+
+            blocksList[blockIndex].bytes[indexInsideBlock] = byte
+        }
+    }
+
+    fun getAllBlocksInByteForm(): ByteArray {
+        return kotlin.ByteArray(BLOCKS_NUMBER * HardDriveBlock.BLOCK_SIZE) {
+            val blockIndex = it / HardDriveBlock.BLOCK_SIZE
+            val indexInsideBlock = it % HardDriveBlock.BLOCK_SIZE
+
+            blocksList[blockIndex].bytes[indexInsideBlock]
+        }
+    }
+
     fun getBlock(blockIndex: Int) = blocksList[blockIndex]
 
     fun setBlock(blockIndex: Int, bytesToSet: List<Byte> = List<Byte>(HardDriveBlock.BLOCK_SIZE) { 0 }) {

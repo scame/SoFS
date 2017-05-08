@@ -1,14 +1,15 @@
-import java.nio.ByteBuffer
-
 class CallsDispatcher {
 
-    private var fsCore: FsCore
+    private val dbh: DiskBackupHandler
+
+    private val fsCore: FsCore
 
     init {
         val hardDrive = HardDrive()
         val bitmapHandler = BitmapHandler(hardDrive)
         val fdh = FileDescriptorsHandler(hardDrive, bitmapHandler)
         val openFileTable = OpenFileTable()
+        dbh = DiskBackupHandler(hardDrive)
         fsCore = FsCore(fdh, BitmapHandler(hardDrive), Directory(fdh, bitmapHandler), openFileTable, hardDrive)
     }
 
@@ -67,10 +68,10 @@ class CallsDispatcher {
     }
 
     fun save(backFileName: String) {
-        println("Save: $backFileName")
+        dbh.save(backFileName)
     }
 
     fun restore(backFileName: String) {
-        println("Restore: $backFileName")
+        dbh.restore(backFileName)
     }
 }
