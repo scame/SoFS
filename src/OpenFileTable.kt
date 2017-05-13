@@ -7,6 +7,10 @@ import java.nio.ByteBuffer
 data class OpenFileTableEntry(val readWriteBuffer: ByteBuffer, var currentPosition: Int,
                               var fdIndex: Int, var isInUse: Boolean)
 
+fun OpenFileTableEntry.updateFileSize(fdh: FileDescriptorsHandler) {
+    fdh.getFileDescriptorByIndex(fdIndex).fileLength = currentPosition
+}
+
 fun OpenFileTableEntry.allocateDataBlock(bitmapHandler: BitmapHandler, hardDrive: HardDrive, fdh: FileDescriptorsHandler) {
     var alreadyAllocated = if (currentPosition == 0) 0 else currentPosition / HardDriveBlock.BLOCK_SIZE
     val pointersBlock = hardDrive.getBlock(fdh.getFileDescriptorByIndex(fdIndex).pointersBlockIndex)

@@ -11,6 +11,8 @@ class FdBasedCommandsHandler(val openFileTable: OpenFileTable, val fdh: FileDesc
             println("Error: file is not opened"); return
         }
 
+        oftEntry.updateFileSize(fdh)
+
         if (position > fdh.getFileDescriptorByIndex(fdIndex).fileLength) {
             println("Error: file length is less than specified position"); return
         }
@@ -28,13 +30,13 @@ class FdBasedCommandsHandler(val openFileTable: OpenFileTable, val fdh: FileDesc
             currentPosition.getBlockIndexFromPosition() == newPosition.getBlockIndexFromPosition()
 
 
-
     fun closeFile(fdIndex: Int) {
         val oftEntry = openFileTable.getOftEntryByFdIndex(fdIndex)
         if (oftEntry == null) {
             println("Error: no such open file"); return
         }
 
+        oftEntry.updateFileSize(fdh)
         oftEntry.writeBufferToDisk(fdh, hardDrive)
         oftEntry.clear()
     }
@@ -54,7 +56,6 @@ class FdBasedCommandsHandler(val openFileTable: OpenFileTable, val fdh: FileDesc
         var bufferOffset = oftEntry.currentPosition % HardDriveBlock.BLOCK_SIZE
 
         randomBytes.forEach { byte ->
-            fdh.getFileDescriptorByIndex(oftEntry.fdIndex).fileLength++
             oftEntry.putIntoBuffer(bufferOffset++, byte)
 
             if (bufferOffset >= HardDriveBlock.BLOCK_SIZE) {
@@ -80,6 +81,8 @@ class FdBasedCommandsHandler(val openFileTable: OpenFileTable, val fdh: FileDesc
         if (oftEntry == null) {
             println("Error: file is not opened"); return
         }
+
+        oftEntry.updateFileSize(fdh)
 
         var bufferOffset = oftEntry.currentPosition % HardDriveBlock.BLOCK_SIZE
         var counter = 0
