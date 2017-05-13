@@ -31,14 +31,14 @@ class FileDescriptorsHandler(private val hardDrive: HardDrive, private val bitma
 
     private var inMemFileDescriptors: List<FileDescriptor>? = null
 
-    fun saveDescriptorsToDisk() {
+    fun persistDescriptors() {
         val descriptorsDataBlock = hardDrive.getBlock(DESCRIPTORS_BLOCK_INDEX)
 
         inMemFileDescriptors?.forEachIndexed { index, fileDescriptor ->
-            val fileLength = ByteBuffer.allocate(4).putInt(fileDescriptor.fileLength).array().toList()
+            val fileLengthBytes = ByteBuffer.allocate(4).putInt(fileDescriptor.fileLength).array().toList()
             val pointersBlockIndex = ByteBuffer.allocate(2).putShort(fileDescriptor.pointersBlockIndex.toShort()).array().toList()
             val isUsed = if (fileDescriptor.inUse) 1.toByte() else 0.toByte()
-            writeFdOnDisk(descriptorsDataBlock, index, fileLength, pointersBlockIndex, isUsed)
+            writeFdOnDisk(descriptorsDataBlock, index, fileLengthBytes, pointersBlockIndex, isUsed)
         }
     }
 
@@ -55,7 +55,6 @@ class FileDescriptorsHandler(private val hardDrive: HardDrive, private val bitma
 
         block.bytes[fdIndex * 8 + 6] = isUsed
     }
-
 
     fun getDataBlockFromFdWithIndex(fdIndex: Int, dataBlockNumber: Int): Pair<Int, HardDriveBlock> {
         val pointersBlock = hardDrive.getBlock(getFileDescriptorByIndex(fdIndex).pointersBlockIndex)
@@ -88,8 +87,6 @@ class FileDescriptorsHandler(private val hardDrive: HardDrive, private val bitma
 
         return freeFdIndex to getFileDescriptors()[freeFdIndex]
     }
-
-    fun getFreeFileDescriptor() = getFileDescriptors().first { !it.inUse }
 
     private fun getFileDescriptors(): List<FileDescriptor> {
         if (inMemFileDescriptors == null) {

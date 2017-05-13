@@ -3,14 +3,15 @@ import java.io.FileOutputStream
 import java.nio.file.Files
 import java.nio.file.Paths
 
-class DiskBackupHandler(private val hardDrive: HardDrive, private val fdh: FileDescriptorsHandler) {
+class DiskBackupHandler(private val hardDrive: HardDrive, private val fdh: FileDescriptorsHandler, private val dir: Directory) {
 
     companion object {
         val FILE_PATH = "/home/scame/IdeaProjects/SoFS/src"
     }
 
     fun save(backupFileName: String) {
-        fdh.saveDescriptorsToDisk()
+        dir.close()
+        fdh.persistDescriptors()
 
         val fos = FileOutputStream(File("$FILE_PATH/$backupFileName"))
         fos.write(hardDrive.getAllBlocksInByteForm())

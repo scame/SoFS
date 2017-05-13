@@ -13,8 +13,8 @@ class CallsDispatcher {
         val bitmapHandler = BitmapHandler(hardDrive)
         val fdh = FileDescriptorsHandler(hardDrive, bitmapHandler)
         val openFileTable = OpenFileTable()
-        dbh = DiskBackupHandler(hardDrive)
-        rootDir = Directory(fdh, bitmapHandler)
+        rootDir = Directory(fdh, bitmapHandler, hardDrive, openFileTable)
+        dbh = DiskBackupHandler(hardDrive, fdh, rootDir)
         nameBasedCommandsHandler = NameBasedCommandsHandler(fdh, rootDir, openFileTable)
         fdBasedCommandsHandler = FdBasedCommandsHandler(openFileTable, fdh, hardDrive, bitmapHandler)
     }
