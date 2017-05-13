@@ -62,6 +62,11 @@ fun OpenFileTableEntry.putIntoBuffer(bufferOffset: Int, byte: Byte) {
     ++this.currentPosition
 }
 
+fun OpenFileTableEntry.getFromBuffer(bufferOffset: Int): Byte {
+    ++this.currentPosition
+    return readWriteBuffer.get(bufferOffset)
+}
+
 class OpenFileTable {
 
     companion object {

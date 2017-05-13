@@ -1,5 +1,5 @@
 /**
- * fundamentally, directory is just a file (with the exception of OFT entry), so it's size limited to 512KB
+ * fundamentally, directory is just a file, so it's size limited to 512KB
  * let's limit file name to 160bits (even if every character would take 2bytes we still can have 10chars file names)
  * fd will take 8bits and 8bits will be given to in use flag
  *
@@ -20,28 +20,27 @@ class Directory(private val fdh: FileDescriptorsHandler, private val bitmapHandl
     companion object {
         val MAX_ENTRIES = 23831
 
+        val DIR_FD_INDEX = 0
+
         val FD_OFFSET = 20
         val IN_USE_FLAG_OFFSET = 21
         val ENTRY_SIZE_IN_BYTES = 22
     }
 
-    private val oftEntry: OpenFileTableEntry
+    private lateinit var oftEntry: OpenFileTableEntry
 
     private val directoryEntriesList = mutableListOf<DirectoryEntry>()
 
-    private var directoryFd: FileDescriptor
+    private lateinit var directoryFd: FileDescriptor
 
     // we assume that this call happens before any file allocations, so FD index will be 0
-    init {
+    fun initCleanDirectory() {
         val freeFd = fdh.getFreeFileDescriptorWithIndex()
         directoryFd = freeFd!!.second
         directoryFd.inUse = true
         assignPointersBlockToDirectoryFd()
 
-        oftEntry = openFileTable.getFreeOftEntryWithIndex()!!.second
-        oftEntry.readWriteBuffer.put(fdh.getDataBlockFromFdWithIndex(freeFd.first, 0).second.bytes.toByteArray())
-        oftEntry.fdIndex = freeFd.first
-        oftEntry.isInUse = true
+        bindOftEntry()
 
         allocateEmptyDirectoryEntries()
     }
@@ -56,6 +55,66 @@ class Directory(private val fdh: FileDescriptorsHandler, private val bitmapHandl
         (0 until MAX_ENTRIES).forEach {
             directoryEntriesList.add(DirectoryEntry(isInUse = false))
         }
+    }
+
+
+    // file descriptors must be already restored
+    fun restoreFromDisk() {
+        bindOftEntry()
+
+        val numberOfDirectories = fdh.getFileDescriptorByIndex(DIR_FD_INDEX).fileLength / ENTRY_SIZE_IN_BYTES
+
+        (0 until numberOfDirectories).forEach { dirIndex ->
+            directoryEntriesList.add(parseEachDirectory(dirIndex))
+        }
+    }
+
+    private fun parseEachDirectory(dirIndex: Int): DirectoryEntry {
+        val parsedFileName = parseFileName(dirIndex)
+        val parsedFdIndex = parseFdIndex(dirIndex)
+        val parsedUsageFlag = parseUsageByte(dirIndex)
+
+        return DirectoryEntry(parsedFileName, parsedFdIndex, parsedUsageFlag)
+    }
+
+
+    private fun parseFileName(dirIndex: Int): String {
+        var bufferOffset = ENTRY_SIZE_IN_BYTES * dirIndex % HardDriveBlock.BLOCK_SIZE
+        val fileNameBytes = mutableListOf<Byte>()
+        oftEntry.readDataBlockIntoBuffer(dirIndex * ENTRY_SIZE_IN_BYTES, hardDrive, fdh)
+        oftEntry.currentPosition = dirIndex * ENTRY_SIZE_IN_BYTES
+
+        (0 until FD_OFFSET).forEach {
+            fileNameBytes.add(oftEntry.getFromBuffer(bufferOffset++))
+
+            if (bufferOffset >= HardDriveBlock.BLOCK_SIZE) {
+                oftEntry.iterateToNextDataBlock(fdh, hardDrive)
+                bufferOffset = 0
+            }
+        }
+
+        return String(fileNameBytes.toByteArray())
+    }
+
+    private fun parseFdIndex(dirIndex: Int): Int {
+        val bufferOffset = ENTRY_SIZE_IN_BYTES * dirIndex % HardDriveBlock.BLOCK_SIZE
+        oftEntry.readDataBlockIntoBuffer(dirIndex * ENTRY_SIZE_IN_BYTES + FD_OFFSET, hardDrive, fdh)
+
+        return oftEntry.readWriteBuffer[bufferOffset].toInt()
+    }
+
+    private fun parseUsageByte(dirIndex: Int): Boolean {
+        val bufferOffset = ENTRY_SIZE_IN_BYTES * dirIndex % HardDriveBlock.BLOCK_SIZE
+        oftEntry.readDataBlockIntoBuffer(dirIndex * ENTRY_SIZE_IN_BYTES + IN_USE_FLAG_OFFSET, hardDrive, fdh)
+
+        return oftEntry.readWriteBuffer[bufferOffset].toInt() != 0
+    }
+
+    private fun bindOftEntry() {
+        oftEntry = openFileTable.getFreeOftEntryWithIndex()!!.second
+        oftEntry.readWriteBuffer.put(fdh.getDataBlockFromFdWithIndex(DIR_FD_INDEX, 0).second.bytes.toByteArray())
+        oftEntry.fdIndex = DIR_FD_INDEX
+        oftEntry.isInUse = true
     }
 
     fun close() {
