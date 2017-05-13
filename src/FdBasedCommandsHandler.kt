@@ -35,7 +35,6 @@ class FdBasedCommandsHandler(val openFileTable: OpenFileTable, val fdh: FileDesc
             println("Error: no such open file"); return
         }
 
-        fdh.getFileDescriptorByIndex(fdIndex).fileLength = oftEntry.currentPosition
         oftEntry.writeBufferToDisk(fdh, hardDrive)
         oftEntry.clear()
     }
@@ -55,6 +54,7 @@ class FdBasedCommandsHandler(val openFileTable: OpenFileTable, val fdh: FileDesc
         var bufferOffset = oftEntry.currentPosition % HardDriveBlock.BLOCK_SIZE
 
         randomBytes.forEach { byte ->
+            fdh.getFileDescriptorByIndex(oftEntry.fdIndex).fileLength++
             oftEntry.putIntoBuffer(bufferOffset++, byte)
 
             if (bufferOffset >= HardDriveBlock.BLOCK_SIZE) {
@@ -87,8 +87,7 @@ class FdBasedCommandsHandler(val openFileTable: OpenFileTable, val fdh: FileDesc
         val inMemBuffer = mutableListOf<Byte>()
 
         while (bufferOffset < HardDriveBlock.BLOCK_SIZE && isSomethingToReadLeft(counter, bytesNumber, oftEntry)) {
-            inMemBuffer.add(oftEntry.readWriteBuffer[bufferOffset++])
-            ++oftEntry.currentPosition
+            inMemBuffer.add(oftEntry.getFromBuffer(bufferOffset++))
             ++counter
 
             if (bufferOffset >= HardDriveBlock.BLOCK_SIZE && isSomethingToReadLeft(counter, bytesNumber, oftEntry)) {

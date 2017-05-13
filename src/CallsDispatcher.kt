@@ -1,3 +1,8 @@
+/**
+ * the first command must be init OR restore
+ * to be able to restore FS state later, call save at the end of an interaction
+ */
+
 class CallsDispatcher {
 
     private val dbh: DiskBackupHandler
@@ -35,6 +40,8 @@ class CallsDispatcher {
 
     fun init() {
         // real initialization goes into init block to avoid optional types handling
+        // file descriptors will be initialized lazily (accordingly to disk state)
+        rootDir.initCleanDirectory()
         println("initialization: success")
     }
 

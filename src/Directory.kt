@@ -51,8 +51,8 @@ class Directory(private val fdh: FileDescriptorsHandler, private val bitmapHandl
     }
 
     // should be read and parsed from disk
-    private fun allocateEmptyDirectoryEntries() {
-        (0 until MAX_ENTRIES).forEach {
+    private fun allocateEmptyDirectoryEntries(allocateFrom: Int = 0) {
+        (allocateFrom until MAX_ENTRIES).forEach {
             directoryEntriesList.add(DirectoryEntry(isInUse = false))
         }
     }
@@ -67,6 +67,8 @@ class Directory(private val fdh: FileDescriptorsHandler, private val bitmapHandl
         (0 until numberOfDirectories).forEach { dirIndex ->
             directoryEntriesList.add(parseEachDirectory(dirIndex))
         }
+
+        allocateEmptyDirectoryEntries(numberOfDirectories)
     }
 
     private fun parseEachDirectory(dirIndex: Int): DirectoryEntry {
@@ -176,9 +178,9 @@ class Directory(private val fdh: FileDescriptorsHandler, private val bitmapHandl
         val fdIndexByte = fileDirectoryEntry.fdIndex.toByte()
 
         val bytesOffset = entryIndex * ENTRY_SIZE_IN_BYTES + FD_OFFSET
-        val positionWithinBlock = bytesOffset % HardDriveBlock.BLOCK_SIZE
+        var positionWithinBlock = bytesOffset % HardDriveBlock.BLOCK_SIZE
 
-        oftEntry.putIntoBuffer(positionWithinBlock, fdIndexByte)
+        oftEntry.putIntoBuffer(positionWithinBlock++, fdIndexByte)
         if (positionWithinBlock >= HardDriveBlock.BLOCK_SIZE) {
             oftEntry.iterateToNextDataBlock(fdh, hardDrive)
         }
@@ -188,9 +190,9 @@ class Directory(private val fdh: FileDescriptorsHandler, private val bitmapHandl
         val inUseFlagByte = if (fileDirectoryEntry.isInUse) 1.toByte() else 0.toByte()
 
         val bytesOffset = entryIndex * ENTRY_SIZE_IN_BYTES + IN_USE_FLAG_OFFSET
-        val positionWithinBlock = bytesOffset % HardDriveBlock.BLOCK_SIZE
+        var positionWithinBlock = bytesOffset % HardDriveBlock.BLOCK_SIZE
 
-        oftEntry.putIntoBuffer(positionWithinBlock, inUseFlagByte)
+        oftEntry.putIntoBuffer(positionWithinBlock++, inUseFlagByte)
         if (positionWithinBlock >= HardDriveBlock.BLOCK_SIZE) {
             oftEntry.iterateToNextDataBlock(fdh, hardDrive)
         }

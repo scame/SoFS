@@ -22,5 +22,6 @@ class DiskBackupHandler(private val hardDrive: HardDrive, private val fdh: FileD
         val path = Paths.get("$FILE_PATH/$backupFileName")
         val hardDriveBackup = Files.readAllBytes(path)
         hardDrive.restoreFromExternalSource(hardDriveBackup)
+        dir.restoreFromDisk()
     }
 }
