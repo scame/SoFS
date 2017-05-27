@@ -1,36 +1,37 @@
-
 import java.nio.ByteBuffer
 
 /**
  *  all file descriptors go into one disk block
  *
  *  each descriptor contains:
- *                           one 32bit value (file len in bytes)
- *                           one 16bit value (index of a block that points to data blocks)
+ *                           one 8bit value (file len in bytes)
+ *                           three 16bit values (data block indexes)
  *                           one 8bit val (used/unused fd)
- *                           one empty byte (to have power of two values)
  *
  *  consequently, we can have up to 64 (block size) / 8 = 8 file descriptors
- *  and MAX_FILE_SIZE = 64 (block size) / 2 (data block index size) = 32 pointers to 64bytes data blocks = 2kb
+ *  and MAX_FILE_SIZE = 64 (block size) * 3 (data blocks number) = 192
  */
 
 data class FileDescriptor(var fileLength: Int,
-                          var pointersBlockIndex: Int,
+                          var dataBlockIndexes: MutableList<Int> =
+                          MutableList(FileDescriptorsModel.DATA_BLOCKS_NUMBER) { -1 },
                           var inUse: Boolean)
 
 fun FileDescriptor.clear() {
     inUse = false
     fileLength = 0
-    pointersBlockIndex = -1
+    (0 until dataBlockIndexes.size).forEach { dataBlockIndexes[it] = -1 }
 }
 
 class FileDescriptorsModel(private val hardDrive: HardDrive,
                            private val bitmapModel: BitmapModel) {
     companion object {
         val FD_NUMBER = 8
+        val FD_SIZE_IN_BYTES = 8
         val DESCRIPTORS_BLOCK_INDEX = 8
 
-        val PTR_BLOCK_SIZE = 64
+        val DATA_BLOCKS_NUMBER = 3
+        val MAX_FILE_SIZE = HardDriveBlock.BLOCK_SIZE * DATA_BLOCKS_NUMBER
     }
 
     private val fileDescriptors by lazy { getFileDescriptorsFromDisk() }
@@ -38,47 +39,53 @@ class FileDescriptorsModel(private val hardDrive: HardDrive,
     fun persistDescriptors() {
         val descriptorsDataBlock = hardDrive.getBlock(DESCRIPTORS_BLOCK_INDEX)
 
-        fileDescriptors.forEachIndexed { index, (fileLength, pointersBlockIndex, inUse) ->
-            val fileLengthBytes = ByteBuffer.allocate(4).putInt(fileLength).array().toList()
-            val pointersBlockIndexBytes = ByteBuffer.allocate(2).putShort(pointersBlockIndex.toShort()).array().toList()
+        fileDescriptors.forEachIndexed { index, (fileLength, dataBlockIndexes, inUse) ->
+            val fileLengthBytes = fileLength.toByte()
+
+            val dataBlockIndexesBytes = mutableListOf<Byte>()
+            (0 until DATA_BLOCKS_NUMBER).forEach {
+                val buffer = ByteBuffer.allocate(2)
+                buffer.putShort(dataBlockIndexes[it].toShort())
+                dataBlockIndexesBytes += buffer.array().toMutableList()
+            }
+
             val isUsed: Byte = if (inUse) 1 else 0
 
-            writeFdOnDisk(descriptorsDataBlock, index, fileLengthBytes, pointersBlockIndexBytes, isUsed)
+            writeFdOnDisk(descriptorsDataBlock, index, fileLengthBytes, dataBlockIndexesBytes.toList(), isUsed)
         }
     }
 
-    private fun writeFdOnDisk(block: HardDriveBlock, fdIndex: Int, fileLength: List<Byte>,
-                              pointersBlockIndex: List<Byte>, isUsed: Byte) {
-        for (i in 0 until 4)
-            block.bytes[fdIndex * 8 + i] = fileLength[i]
+    private fun writeFdOnDisk(block: HardDriveBlock, fdIndex: Int, fileLength: Byte,
+                              dataBlockIndexesBytes: List<Byte>, isUsed: Byte) {
+        val fdOffset = fdIndex * FD_SIZE_IN_BYTES
 
-        block.bytes[fdIndex * 8 + 4] = pointersBlockIndex[0]
-        block.bytes[fdIndex * 8 + 5] = pointersBlockIndex[1]
+        block.bytes[fdOffset] = fileLength
 
-        block.bytes[fdIndex * 8 + 6] = isUsed
+        dataBlockIndexesBytes.forEachIndexed { index, byte ->
+            block.bytes[fdOffset + index + 1] = byte
+        }
+
+        block.bytes[fdOffset + 7] = isUsed
     }
 
-    fun getDataBlockFromFdWithIndex(fdIndex: Int,
-                                    dataBlockNumber: Int): IndexedValue<HardDriveBlock> {
+    fun getDataBlockFromFdWithIndex(fdIndex: Int, dataBlockNumber: Int): IndexedValue<HardDriveBlock> {
         val fd = getFdByIndex(fdIndex)
-        val pointersBlock = hardDrive.getBlock(fd.pointersBlockIndex)
-        val dataBlockIndex = pointersBlock.getDataBlockIndexFromPointersBlock(dataBlockNumber)
+        val dataBlockIndex = fd.dataBlockIndexes[dataBlockNumber]
 
         return IndexedValue(dataBlockIndex, hardDrive.getBlock(dataBlockIndex))
     }
 
     fun releaseFd(fdIndex: Int) {
         val fd = getFdByIndex(fdIndex)
-        val pointersBlock = hardDrive.getBlock(fd.pointersBlockIndex)
 
-        var numberOfDataBlocksUsed = fd.fileLength / HardDriveBlock.BLOCK_SIZE
-        if (fd.fileLength % HardDriveBlock.BLOCK_SIZE != 0)
-            ++numberOfDataBlocksUsed
+        (0 until DATA_BLOCKS_NUMBER).forEach {
+            val dataBlockIndex = fd.dataBlockIndexes[it]
 
-        (0 until numberOfDataBlocksUsed).forEach {
-            val associatedDataBlockIndex = pointersBlock.getDataBlockIndexFromPointersBlock(it)
-            hardDrive.setBlock(associatedDataBlockIndex)
-            bitmapModel.changeBlockInUseState(associatedDataBlockIndex, false)
+            if (dataBlockIndex != -1) {
+                hardDrive.setBlock(dataBlockIndex)
+                bitmapModel.changeBlockInUseState(dataBlockIndex, false)
+                fd.dataBlockIndexes[it] = -1
+            }
         }
 
         fd.clear()
@@ -94,46 +101,38 @@ class FileDescriptorsModel(private val hardDrive: HardDrive,
     }
 
     fun allocateFd(fdIndex: Int) {
-        val pointersBlock = bitmapModel.getFreeBlockWithIndex()
-        bitmapModel.changeBlockInUseState(pointersBlock.index, true)
-
         val dataBlockIndex = bitmapModel.getFreeBlockWithIndex().index
-        pointersBlock.value.setPointerToFreeDataBlock(0, dataBlockIndex)
         bitmapModel.changeBlockInUseState(dataBlockIndex, true)
 
         val fd = getFdByIndex(fdIndex)
         fd.inUse = true
-        fd.pointersBlockIndex = pointersBlock.index
+        fd.dataBlockIndexes.add(dataBlockIndex)
     }
 
     private fun getFileDescriptorsFromDisk(): List<FileDescriptor> {
         val fileDescriptorsBlock = hardDrive.getBlock(DESCRIPTORS_BLOCK_INDEX)
 
         return List(FD_NUMBER, { it ->
-            val bytes = fileDescriptorsBlock.bytes.subList(it * 8, it * 8 + 8)
+            val bytes = fileDescriptorsBlock.bytes.subList(
+                    it * FD_SIZE_IN_BYTES, it * FD_SIZE_IN_BYTES + FD_SIZE_IN_BYTES
+            )
             parseFdFromBytes(bytes)
         })
     }
 
     private fun parseFdFromBytes(eightBytesList: List<Byte>): FileDescriptor {
-        val fileLength = readLengthValue(eightBytesList.subList(0, 4))
-        val pointersBlockIndex = readBlockIndex(eightBytesList.subList(4, 6))
-        val inUse = readIsUsedValue(eightBytesList[6])
+        val fileLength = eightBytesList[0]
+        val dataBlockIndexes = readBlockIndexes(eightBytesList.subList(1, 7))
+        val inUse = readIsUsedValue(eightBytesList[7])
 
-        return FileDescriptor(fileLength, pointersBlockIndex, inUse)
+        return FileDescriptor(fileLength.toInt(), dataBlockIndexes, inUse)
     }
 
-    private fun readLengthValue(fourBytesList: List<Byte>): Int {
-        val byteBuffer = ByteBuffer.allocate(4)
-        byteBuffer.put(fourBytesList[0])
-        byteBuffer.put(fourBytesList[1])
-        byteBuffer.put(fourBytesList[2])
-        byteBuffer.put(fourBytesList[3])
-
-        return byteBuffer.getInt(0)
+    private fun readBlockIndexes(sixBytesList: List<Byte>) = MutableList(FileDescriptorsModel.DATA_BLOCKS_NUMBER) {
+        fromTwoBytesToInt(listOf(sixBytesList[it * 2], sixBytesList[it * 2 + 1]))
     }
 
-    private fun readBlockIndex(twoBytesList: List<Byte>): Int {
+    private fun fromTwoBytesToInt(twoBytesList: List<Byte>): Int {
         val byteBuffer = ByteBuffer.allocate(2)
         byteBuffer.put(twoBytesList[0])
         byteBuffer.put(twoBytesList[1])

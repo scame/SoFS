@@ -65,7 +65,7 @@ class FdBasedCommandsHandler(val openFileTable: OpenFileTable,
                 }
 
                 if (oftEntry.isNewBlockNeeded(fdh))
-                    oftEntry.allocateDataBlock(bitmapModel, hardDrive, fdh)
+                    oftEntry.allocateDataBlock(bitmapModel, fdh)
 
                 oftEntry.iterateToNextDataBlock(hardDrive, fdh)
                 bufferOffset = 0

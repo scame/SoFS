@@ -1,5 +1,3 @@
-import java.nio.ByteBuffer
-
 /**
  * simple hard drive IO simulation
  *
@@ -59,27 +57,6 @@ class HardDriveBlock {
     }
 
     val bytes = MutableList<Byte>(BLOCK_SIZE) { 0 }
-}
-
-fun HardDriveBlock.setPointerToFreeDataBlock(indexInPointersBlock: Int,
-                                             freeDataBlockIndex: Int) {
-    val highByte = freeDataBlockIndex.toByte()
-    val lowByte = (freeDataBlockIndex ushr 8).toByte()
-
-    bytes[indexInPointersBlock * 2] = highByte
-    bytes[indexInPointersBlock * 2 + 1] = lowByte
-}
-
-fun HardDriveBlock.getDataBlockIndexFromPointersBlock(indexInPointersBlock: Int): Int {
-    val byteBuffer = ByteBuffer.allocate(2)
-
-    val highByte = bytes[indexInPointersBlock * 2]
-    val lowByte = bytes[indexInPointersBlock * 2 + 1]
-
-    byteBuffer.put(lowByte)
-    byteBuffer.put(highByte)
-
-    return byteBuffer.getShort(0).toInt()
 }
 
 fun Int.getBlockIndexFromPosition(): Int =

@@ -14,22 +14,19 @@ fun OpenFileTableEntry.updateFileSize(fdh: FileDescriptorsModel) {
     fdh.getFdByIndex(fdIndex).fileLength = currentPosition
 }
 
-fun OpenFileTableEntry.allocateDataBlock(bitmapModel: BitmapModel,
-                                         hardDrive: HardDrive,
-                                         fdh: FileDescriptorsModel) {
-
-    val alreadyAllocated = currentPosition / HardDriveBlock.BLOCK_SIZE
-
+fun OpenFileTableEntry.allocateDataBlock(bitmapModel: BitmapModel, fdh: FileDescriptorsModel) {
     val fd = fdh.getFdByIndex(fdIndex)
-    val pointersBlock = hardDrive.getBlock(fd.pointersBlockIndex)
 
     val freeBlockIndex = bitmapModel.getFreeBlockWithIndex().index
-    pointersBlock.setPointerToFreeDataBlock(alreadyAllocated + 1, freeBlockIndex)
+
+    fd.dataBlockIndexes.add(freeBlockIndex)
     bitmapModel.changeBlockInUseState(freeBlockIndex, true)
 }
 
-fun OpenFileTableEntry.isFileFull(): Boolean =
-        currentPosition / HardDriveBlock.BLOCK_SIZE == FileDescriptorsModel.PTR_BLOCK_SIZE - 1
+fun OpenFileTableEntry.isFileFull(): Boolean {
+    println("$currentPosition ${FileDescriptorsModel.MAX_FILE_SIZE}")
+    return currentPosition >= FileDescriptorsModel.MAX_FILE_SIZE
+}
 
 fun OpenFileTableEntry.isNewBlockNeeded(fdh: FileDescriptorsModel): Boolean {
     val fd = fdh.getFdByIndex(fdIndex)
@@ -56,11 +53,9 @@ fun OpenFileTableEntry.writeBufferToDisk(fdh: FileDescriptorsModel,
                                          hardDrive: HardDrive) {
 
     val fd = fdh.getFdByIndex(fdIndex)
-    val pointersBlock = hardDrive.getBlock(fd.pointersBlockIndex)
 
     val blockIndex = currentPosition.getBlockIndexFromPosition()
-    val dataBlockIndex = pointersBlock.getDataBlockIndexFromPointersBlock(blockIndex)
-    hardDrive.setBlock(dataBlockIndex, readWriteBuffer.array().toList())
+    hardDrive.setBlock(fd.dataBlockIndexes[blockIndex], readWriteBuffer.array().toList())
 
     println("written successfully")
 }

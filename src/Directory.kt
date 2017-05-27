@@ -49,14 +49,10 @@ class Directory(private val fdh: FileDescriptorsModel,
     }
 
     private fun allocateDirectoryFd() {
-        val pointersBlock = bitmapModel.getFreeBlockWithIndex()
-        bitmapModel.changeBlockInUseState(pointersBlock.index, true)
-
         val dataBlockIndex = bitmapModel.getFreeBlockWithIndex().index
-        pointersBlock.value.setPointerToFreeDataBlock(0, dataBlockIndex)
         bitmapModel.changeBlockInUseState(dataBlockIndex, true)
 
-        directoryFd.pointersBlockIndex = pointersBlock.index
+        directoryFd.dataBlockIndexes.add(dataBlockIndex)
     }
 
     private fun bindOftEntry() {
@@ -173,7 +169,7 @@ class Directory(private val fdh: FileDescriptorsModel,
 
             if (positionWithinBlock >= HardDriveBlock.BLOCK_SIZE) {
                 if (oftEntry.isNewBlockNeeded(fdh))
-                    oftEntry.allocateDataBlock(bitmapModel, hardDrive, fdh)
+                    oftEntry.allocateDataBlock(bitmapModel, fdh)
 
                 oftEntry.iterateToNextDataBlock(hardDrive, fdh)
                 positionWithinBlock = 0
