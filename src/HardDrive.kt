@@ -13,39 +13,42 @@ class HardDrive {
 
     companion object {
         val BLOCKS_NUMBER = 4096
-
         val BITMAP_BLOCKS_NUMBER = 4
     }
 
-    private val blocksList = MutableList(BLOCKS_NUMBER) { HardDriveBlock() }
+    private val blocks = MutableList(BLOCKS_NUMBER) { HardDriveBlock() }
 
     fun restoreFromExternalSource(bytes: ByteArray) {
         bytes.forEachIndexed { index, byte ->
             val blockIndex = index / HardDriveBlock.BLOCK_SIZE
-            val indexInsideBlock = index % HardDriveBlock.BLOCK_SIZE
+            val indexInBlock = index % HardDriveBlock.BLOCK_SIZE
 
-            blocksList[blockIndex].bytes[indexInsideBlock] = byte
+            blocks[blockIndex].bytes[indexInBlock] = byte
         }
     }
 
-    fun getAllBlocksInByteForm(): ByteArray {
-        return kotlin.ByteArray(BLOCKS_NUMBER * HardDriveBlock.BLOCK_SIZE) {
-            val blockIndex = it / HardDriveBlock.BLOCK_SIZE
-            val indexInsideBlock = it % HardDriveBlock.BLOCK_SIZE
+    fun getAllBlocksInByteForm() = ByteArray(BLOCKS_NUMBER * HardDriveBlock.BLOCK_SIZE) {
+        val blockIndex = it / HardDriveBlock.BLOCK_SIZE
+        val indexInBlock = it % HardDriveBlock.BLOCK_SIZE
 
-            blocksList[blockIndex].bytes[indexInsideBlock]
-        }
+        blocks[blockIndex].bytes[indexInBlock]
     }
 
-    fun getBlock(blockIndex: Int) = blocksList[blockIndex]
+    fun getBlock(blockIndex: Int): HardDriveBlock = blocks[blockIndex]
 
-    fun setBlock(blockIndex: Int, bytesToSet: List<Byte> = List<Byte>(HardDriveBlock.BLOCK_SIZE) { 0 }) {
-        bytesToSet.forEachIndexed { index, byte -> blocksList[blockIndex].bytes[index] = byte }
-        nullifyBlockEnding(blocksList[blockIndex], bytesToSet.size)
+    fun setBlock(blockIndex: Int,
+                 bytes: List<Byte> = List(HardDriveBlock.BLOCK_SIZE) { 0.toByte() }) {
+
+        bytes.forEachIndexed { index, byte ->
+            blocks[blockIndex].bytes[index] = byte
+        }
+
+        nullifyBlockEnding(blocks[blockIndex], bytes.size)
     }
 
     private fun nullifyBlockEnding(block: HardDriveBlock, truncateIndex: Int) {
-        (truncateIndex until HardDriveBlock.BLOCK_SIZE).forEach { block.bytes[0] = 0 }
+        (truncateIndex until HardDriveBlock.BLOCK_SIZE)
+                .forEach { block.bytes[it] = 0 }
     }
 }
 
@@ -58,29 +61,26 @@ class HardDriveBlock {
     val bytes = MutableList<Byte>(BLOCK_SIZE) { 0 }
 }
 
-fun HardDriveBlock.setPointerToFreeDataBlock(indexInsidePointersBlock: Int, freeDataBlockIndex: Int) {
+fun HardDriveBlock.setPointerToFreeDataBlock(indexInPointersBlock: Int,
+                                             freeDataBlockIndex: Int) {
     val highByte = freeDataBlockIndex.toByte()
-    val lowByte = freeDataBlockIndex.ushr(8).toByte()
+    val lowByte = (freeDataBlockIndex ushr 8).toByte()
 
-    this.bytes[indexInsidePointersBlock * 2] = highByte
-    this.bytes[indexInsidePointersBlock * 2 + 1] = lowByte
+    bytes[indexInPointersBlock * 2] = highByte
+    bytes[indexInPointersBlock * 2 + 1] = lowByte
 }
 
-fun HardDriveBlock.getDataBlockIndexFromPointersBlock(indexInsidePointersBlock: Int): Int {
+fun HardDriveBlock.getDataBlockIndexFromPointersBlock(indexInPointersBlock: Int): Int {
     val byteBuffer = ByteBuffer.allocate(2)
 
-    val highByte = this.bytes[indexInsidePointersBlock * 2]
-    val lowByte = this.bytes[indexInsidePointersBlock * 2 + 1]
-    byteBuffer.put(highByte)
+    val highByte = bytes[indexInPointersBlock * 2]
+    val lowByte = bytes[indexInPointersBlock * 2 + 1]
+
     byteBuffer.put(lowByte)
+    byteBuffer.put(highByte)
 
     return byteBuffer.getShort(0).toInt()
 }
 
-fun Int.getBlockIndexFromPosition(): Int {
-    return if (this % HardDriveBlock.BLOCK_SIZE != 0) {
-        this / HardDriveBlock.BLOCK_SIZE + 1
-    } else {
+fun Int.getBlockIndexFromPosition(): Int =
         this / HardDriveBlock.BLOCK_SIZE
-    }
-}

@@ -15,9 +15,7 @@ class Interactor {
     private val callsHandler = CallsDispatcher()
 
     fun run() {
-        while (true) {
-            parseInputStr(readLine() ?: "")
-        }
+        while (true) parseInputStr(readLine() ?: "")
     }
 
     private fun parseInputStr(inputString: String) {
@@ -28,10 +26,12 @@ class Interactor {
                 CREATE -> create(tokens[1])
                 REMOVE -> remove(tokens[1])
                 OPEN -> open(tokens[1])
-                CLOSE -> close(Integer.valueOf(tokens[1]))
-                WRITE -> write(Integer.valueOf(tokens[1]), Integer.valueOf(tokens[2]))
-                READ -> read(Integer.valueOf(tokens[1]), Integer.valueOf(tokens[2]))
-                LSEEK -> lseek(Integer.valueOf(tokens[1]), Integer.valueOf(tokens[2]))
+
+                CLOSE -> close(tokens[1].toInt())
+                WRITE -> write(tokens[1].toInt(), tokens[2].toInt())
+                READ -> read(tokens[1].toInt(), tokens[2].toInt())
+                LSEEK -> lseek(tokens[1].toInt(), tokens[2].toInt())
+
                 DIRECTORY -> directory()
                 SAVE -> save(tokens[1])
                 RESTORE -> restore(tokens[1])

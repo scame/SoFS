@@ -2,7 +2,6 @@
  * the first command must be init OR restore
  * to be able to restore FS state later, call save at the end of an interaction
  */
-
 class CallsDispatcher {
 
     private val dbh: DiskBackupHandler
@@ -15,9 +14,10 @@ class CallsDispatcher {
 
     init {
         val hardDrive = HardDrive()
-        val bitmapHandler = BitmapHandler(hardDrive)
-        val fdh = FileDescriptorsHandler(hardDrive, bitmapHandler)
+        val bitmapHandler = BitmapModel(hardDrive)
+        val fdh = FileDescriptorsModel(hardDrive, bitmapHandler)
         val openFileTable = OpenFileTable()
+
         rootDir = Directory(fdh, bitmapHandler, hardDrive, openFileTable)
         dbh = DiskBackupHandler(hardDrive, fdh, rootDir)
         nameBasedCommandsHandler = NameBasedCommandsHandler(fdh, rootDir, openFileTable)
@@ -42,7 +42,7 @@ class CallsDispatcher {
         // real initialization goes into init block to avoid optional types handling
         // file descriptors will be initialized lazily (accordingly to disk state)
         rootDir.initCleanDirectory()
-        println("initialization: success")
+        println("initialization successful")
     }
 
     fun open(fileName: String) {

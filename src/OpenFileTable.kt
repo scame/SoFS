@@ -4,70 +4,87 @@ import java.nio.ByteBuffer
  * OFT size is limited to 10 values (only 10 files can be opened at the same time)
  */
 
-data class OpenFileTableEntry(val readWriteBuffer: ByteBuffer, var currentPosition: Int,
-                              var fdIndex: Int, var isInUse: Boolean)
+data class OpenFileTableEntry(val readWriteBuffer: ByteBuffer,
+                              var currentPosition: Int = 0,
+                              var fdIndex: Int = -1,
+                              var isInUse: Boolean = false,
+                              var modified: Boolean = false)
 
-fun OpenFileTableEntry.updateFileSize(fdh: FileDescriptorsHandler) {
-    fdh.getFileDescriptorByIndex(fdIndex).fileLength = currentPosition
+fun OpenFileTableEntry.updateFileSize(fdh: FileDescriptorsModel) {
+    fdh.getFdByIndex(fdIndex).fileLength = currentPosition
 }
 
-fun OpenFileTableEntry.allocateDataBlock(bitmapHandler: BitmapHandler, hardDrive: HardDrive, fdh: FileDescriptorsHandler) {
-    var alreadyAllocated = if (currentPosition == 0) 0 else currentPosition / HardDriveBlock.BLOCK_SIZE
-    val pointersBlock = hardDrive.getBlock(fdh.getFileDescriptorByIndex(fdIndex).pointersBlockIndex)
+fun OpenFileTableEntry.allocateDataBlock(bitmapModel: BitmapModel,
+                                         hardDrive: HardDrive,
+                                         fdh: FileDescriptorsModel) {
 
-    val freeBlockWithIndex = bitmapHandler.getFreeBlockWithIndex()
-    pointersBlock.setPointerToFreeDataBlock(++alreadyAllocated, freeBlockWithIndex.second)
-    bitmapHandler.changeBlockInUseState(freeBlockWithIndex.second, true)
+    val alreadyAllocated = currentPosition / HardDriveBlock.BLOCK_SIZE
+
+    val fd = fdh.getFdByIndex(fdIndex)
+    val pointersBlock = hardDrive.getBlock(fd.pointersBlockIndex)
+
+    val freeBlockIndex = bitmapModel.getFreeBlockWithIndex().index
+    pointersBlock.setPointerToFreeDataBlock(alreadyAllocated + 1, freeBlockIndex)
+    bitmapModel.changeBlockInUseState(freeBlockIndex, true)
 }
 
-fun OpenFileTableEntry.isNewBlockNeeded(fdh: FileDescriptorsHandler): Boolean {
-    val fd = fdh.getFileDescriptorByIndex(fdIndex)
+fun OpenFileTableEntry.isFileFull(): Boolean =
+        currentPosition / HardDriveBlock.BLOCK_SIZE == FileDescriptorsModel.PTR_BLOCK_SIZE - 1
+
+fun OpenFileTableEntry.isNewBlockNeeded(fdh: FileDescriptorsModel): Boolean {
+    val fd = fdh.getFdByIndex(fdIndex)
     return currentPosition >= fd.fileLength
 }
 
-fun OpenFileTableEntry.iterateToNextDataBlock(fdh: FileDescriptorsHandler, hardDrive: HardDrive) {
-    val dataBlockWithIndex = fdh.getDataBlockFromFdWithIndex(fdIndex, currentPosition.getBlockIndexFromPosition() - 1)
-    hardDrive.setBlock(dataBlockWithIndex.first, readWriteBuffer.array().toList())
-    val nextDataBlockWithIndex = fdh.getDataBlockFromFdWithIndex(fdIndex, currentPosition.getBlockIndexFromPosition())
+fun OpenFileTableEntry.readDataBlockIntoBuffer(newPosition: Int,
+                                               hardDrive: HardDrive,
+                                               fdh: FileDescriptorsModel) {
 
-    rewriteBuffer(nextDataBlockWithIndex.second)
+    if (modified) writeBufferToDisk(fdh, hardDrive)
+
+    val nextPosition = newPosition.getBlockIndexFromPosition()
+    val nextDataBlock = fdh.getDataBlockFromFdWithIndex(fdIndex, nextPosition).value
+
+    rewriteBuffer(nextDataBlock)
 }
 
-fun OpenFileTableEntry.readDataBlockIntoBuffer(newPosition: Int, hardDrive: HardDrive, fdh: FileDescriptorsHandler) {
-    val currentBlockWithIndex = fdh.getDataBlockFromFdWithIndex(fdIndex, currentPosition.getBlockIndexFromPosition())
-    hardDrive.setBlock(currentBlockWithIndex.first, readWriteBuffer.array().toList())
-    val newDataBlockWithIndex = fdh.getDataBlockFromFdWithIndex(fdIndex, newPosition.getBlockIndexFromPosition())
+fun OpenFileTableEntry.iterateToNextDataBlock(hardDrive: HardDrive,
+                                              fdh: FileDescriptorsModel) =
+        readDataBlockIntoBuffer(currentPosition, hardDrive, fdh)
 
-    rewriteBuffer(newDataBlockWithIndex.second)
-}
+fun OpenFileTableEntry.writeBufferToDisk(fdh: FileDescriptorsModel,
+                                         hardDrive: HardDrive) {
 
-fun OpenFileTableEntry.writeBufferToDisk(fdh: FileDescriptorsHandler, hardDrive: HardDrive) {
-    val pointersBlock = hardDrive.getBlock(fdh.getFileDescriptorByIndex(fdIndex).pointersBlockIndex)
+    val fd = fdh.getFdByIndex(fdIndex)
+    val pointersBlock = hardDrive.getBlock(fd.pointersBlockIndex)
 
-    val blockIndexFromPosition = currentPosition.getBlockIndexFromPosition()
-    val dataBlockIndex = pointersBlock.getDataBlockIndexFromPointersBlock(blockIndexFromPosition)
+    val blockIndex = currentPosition.getBlockIndexFromPosition()
+    val dataBlockIndex = pointersBlock.getDataBlockIndexFromPointersBlock(blockIndex)
     hardDrive.setBlock(dataBlockIndex, readWriteBuffer.array().toList())
+
+    println("written successfully")
 }
 
 fun OpenFileTableEntry.clear() {
-    this.readWriteBuffer.clear()
-    this.currentPosition = 0
-    this.fdIndex = -1
-    this.isInUse = false
+    readWriteBuffer.clear()
+    currentPosition = 0
+    fdIndex = -1
+    isInUse = false
+    modified = false
 }
 
 fun OpenFileTableEntry.rewriteBuffer(hardDriveBlock: HardDriveBlock) {
-    this.readWriteBuffer.clear()
-    this.readWriteBuffer.put(hardDriveBlock.bytes.toByteArray())
+    readWriteBuffer.clear()
+    readWriteBuffer.put(hardDriveBlock.bytes.toByteArray())
 }
 
 fun OpenFileTableEntry.putIntoBuffer(bufferOffset: Int, byte: Byte) {
-    this.readWriteBuffer.put(bufferOffset, byte)
-    ++this.currentPosition
+    readWriteBuffer.put(bufferOffset, byte)
+    ++currentPosition
 }
 
 fun OpenFileTableEntry.getFromBuffer(bufferOffset: Int): Byte {
-    ++this.currentPosition
+    ++currentPosition
     return readWriteBuffer.get(bufferOffset)
 }
 
@@ -77,22 +94,20 @@ class OpenFileTable {
         val OFT_SIZE = 10
     }
 
-    private val openFileTableEntries = mutableListOf<OpenFileTableEntry>()
+    private val entries = mutableListOf<OpenFileTableEntry>()
 
     init {
-        (0 until OFT_SIZE).forEach {
-            openFileTableEntries.add(OpenFileTableEntry(ByteBuffer.allocate(HardDriveBlock.BLOCK_SIZE), 0, -1, false))
-        }
+        entries.addAll(List(OFT_SIZE) {
+            OpenFileTableEntry(ByteBuffer.allocate(HardDriveBlock.BLOCK_SIZE))
+        })
     }
 
-    fun getOftEntryByFdIndex(fdIndex: Int) = openFileTableEntries.firstOrNull { it.fdIndex == fdIndex }
+    fun getOftEntryByFdIndex(fdIndex: Int): OpenFileTableEntry? =
+            entries.find { it.fdIndex == fdIndex }
 
-    fun getFreeOftEntryWithIndex(): Pair<Int, OpenFileTableEntry>? {
-        val oftEntry = openFileTableEntries.firstOrNull { !it.isInUse }
-        val oftIndex = openFileTableEntries.indexOfFirst { !it.isInUse }
+    fun getFreeOftEntryWithIndex(): IndexedValue<OpenFileTableEntry>? =
+            entries.withIndex().firstOrNull { !it.value.isInUse }
 
-        if (oftEntry == null || oftIndex == -1) return null
-
-        return oftIndex to oftEntry
-    }
+    fun isFileOpen(fdIndex: Int): Boolean =
+        getOftEntryByFdIndex(fdIndex)?.isInUse ?: false
 }

@@ -24,12 +24,13 @@ fun FileDescriptor.clear() {
     pointersBlockIndex = -1
 }
 
-class FileDescriptorsHandler(private val hardDrive: HardDrive,
-                             private val bitmapHandler: BitmapHandler) {
-
+class FileDescriptorsModel(private val hardDrive: HardDrive,
+                           private val bitmapModel: BitmapModel) {
     companion object {
         val FD_NUMBER = 128
         val DESCRIPTORS_BLOCK_INDEX = 4
+
+        val PTR_BLOCK_SIZE = 512
     }
 
     private val fileDescriptors by lazy { getFileDescriptorsFromDisk() }
@@ -77,7 +78,7 @@ class FileDescriptorsHandler(private val hardDrive: HardDrive,
         (0 until numberOfDataBlocksUsed).forEach {
             val associatedDataBlockIndex = pointersBlock.getDataBlockIndexFromPointersBlock(it)
             hardDrive.setBlock(associatedDataBlockIndex)
-            bitmapHandler.changeBlockInUseState(associatedDataBlockIndex, false)
+            bitmapModel.changeBlockInUseState(associatedDataBlockIndex, false)
         }
 
         fd.clear()
@@ -93,12 +94,12 @@ class FileDescriptorsHandler(private val hardDrive: HardDrive,
     }
 
     fun allocateFd(fdIndex: Int) {
-        val pointersBlock = bitmapHandler.getFreeBlockWithIndex()
-        bitmapHandler.changeBlockInUseState(pointersBlock.index, true)
+        val pointersBlock = bitmapModel.getFreeBlockWithIndex()
+        bitmapModel.changeBlockInUseState(pointersBlock.index, true)
 
-        val dataBlockIndex = bitmapHandler.getFreeBlockWithIndex().index
+        val dataBlockIndex = bitmapModel.getFreeBlockWithIndex().index
         pointersBlock.value.setPointerToFreeDataBlock(0, dataBlockIndex)
-        bitmapHandler.changeBlockInUseState(dataBlockIndex, true)
+        bitmapModel.changeBlockInUseState(dataBlockIndex, true)
 
         val fd = getFdByIndex(fdIndex)
         fd.inUse = true

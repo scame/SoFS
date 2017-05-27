@@ -2,44 +2,61 @@
  * operations like create/remove/open
  */
 
-class NameBasedCommandsHandler(private val fdh: FileDescriptorsHandler, private val directory: Directory,
+class NameBasedCommandsHandler(private val fdh: FileDescriptorsModel,
+                               private val directory: Directory,
                                private val openFileTable: OpenFileTable) {
 
     fun createFile(fileName: String) {
-        val freeFileDescriptorWithIndex = fdh.getFreeFileDescriptorWithIndex()
-        if (freeFileDescriptorWithIndex == null) {
+        if (fileName.toByteArray().size > 19) {
+            println("Error: filename too long, try another one"); return
+        }
+
+        val freeFdIndex = fdh.getFreeFdWithIndex()?.index
+        if (freeFdIndex == null) {
             println("Error: no free file descriptors"); return
         }
 
-        directory.bindDirectoryEntry(fileName, freeFileDescriptorWithIndex.first)
+        fdh.allocateFd(freeFdIndex)
+        directory.bindDirectoryEntry(fileName, freeFdIndex)
     }
 
     fun removeFile(fileName: String) {
-        val fileDescriptorIndex = (directory.getDirectoryEntry(fileName)?.fdIndex ?: -1)
-        if (fileDescriptorIndex == -1) {
+        val fdIndex = (directory.getDirectoryEntry(fileName)?.fdIndex ?: -1)
+        if (fdIndex == -1) {
             println("Error: no such file"); return
         }
 
+        val oftEntry = openFileTable.getOftEntryByFdIndex(fdIndex)
+        if (oftEntry != null) {
+            println("Error: you can't delete open file"); return
+        }
+
         directory.getDirectoryEntry(fileName)?.clear()
-        fdh.releaseFileDescriptor(fileDescriptorIndex)
-        println("Deletion: success")
+        fdh.releaseFd(fdIndex)
+        println("Deletion successful")
     }
 
-    fun openFile(fileName: String): Int {
+    fun openFile(fileName: String) {
         val fdIndex = directory.getDirectoryEntry(fileName)?.fdIndex
         if (fdIndex == null) {
-            println("Error: no such file"); return -1
+            println("Error: no such file"); return
+        }
+
+        if (openFileTable.isFileOpen(fdIndex)) {
+            println("Error: file already open"); return
         }
 
         val oftEntryWithIndex = openFileTable.getFreeOftEntryWithIndex()
         if (oftEntryWithIndex == null) {
-            println("Error: no free oft entry"); return -1
+            println("Error: no free oft entry"); return
         }
 
-        oftEntryWithIndex.second.isInUse = true
-        oftEntryWithIndex.second.fdIndex = fdIndex
-        oftEntryWithIndex.second.readWriteBuffer.put(fdh.getDataBlockFromFdWithIndex(fdIndex, 0).second.bytes.toByteArray())
+        oftEntryWithIndex.value.isInUse = true
+        oftEntryWithIndex.value.fdIndex = fdIndex
 
-        return oftEntryWithIndex.first
+        val dataBlock = fdh.getDataBlockFromFdWithIndex(fdIndex, 0).value
+        oftEntryWithIndex.value.readWriteBuffer.put(dataBlock.bytes.toByteArray())
+
+        println("Opened file fd: ${oftEntryWithIndex.index}")
     }
 }

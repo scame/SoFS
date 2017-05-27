@@ -3,10 +3,12 @@ import java.io.FileOutputStream
 import java.nio.file.Files
 import java.nio.file.Paths
 
-class DiskBackupHandler(private val hardDrive: HardDrive, private val fdh: FileDescriptorsHandler, private val dir: Directory) {
+class DiskBackupHandler(private val hardDrive: HardDrive,
+                        private val fdh: FileDescriptorsModel,
+                        private val dir: Directory) {
 
     companion object {
-        val FILE_PATH = "/home/scame/IdeaProjects/SoFS/src"
+        val FILE_PATH = "/home/swan/IdeaProjects/SoFSa/src"
     }
 
     fun save(backupFileName: String) {
