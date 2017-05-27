@@ -10,8 +10,8 @@ import java.nio.ByteBuffer
  *                           one 8bit val (used/unused fd)
  *                           one empty byte (to have power of two values)
  *
- *  consequently, we can have up to 1024 (block size) / 8 = 128 file descriptors
- *  and MAX_FILE_SIZE = 1024 (block size) / 2 (data block index size) = 512 pointers to 1kb data blocks = 512kb
+ *  consequently, we can have up to 64 (block size) / 8 = 8 file descriptors
+ *  and MAX_FILE_SIZE = 64 (block size) / 2 (data block index size) = 32 pointers to 64bytes data blocks = 2kb
  */
 
 data class FileDescriptor(var fileLength: Int,
@@ -27,10 +27,10 @@ fun FileDescriptor.clear() {
 class FileDescriptorsModel(private val hardDrive: HardDrive,
                            private val bitmapModel: BitmapModel) {
     companion object {
-        val FD_NUMBER = 128
-        val DESCRIPTORS_BLOCK_INDEX = 4
+        val FD_NUMBER = 8
+        val DESCRIPTORS_BLOCK_INDEX = 8
 
-        val PTR_BLOCK_SIZE = 512
+        val PTR_BLOCK_SIZE = 64
     }
 
     private val fileDescriptors by lazy { getFileDescriptorsFromDisk() }

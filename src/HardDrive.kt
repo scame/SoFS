@@ -3,9 +3,9 @@ import java.nio.ByteBuffer
 /**
  * simple hard drive IO simulation
  *
- * 4096 1KB blocks totally gives us 4MB disk space
+ * 4096 64bytes blocks totally gives us 256KB of disk space
  *
- * 4 blocks reserved to bitmap (bytes are used as bits to avoid low-level bits arithmetic)
+ * 8 blocks reserved to bitmap
  * 1 block goes for file descriptors table
  */
 
@@ -13,7 +13,7 @@ class HardDrive {
 
     companion object {
         val BLOCKS_NUMBER = 4096
-        val BITMAP_BLOCKS_NUMBER = 4
+        val BITMAP_BLOCKS_NUMBER = 8
     }
 
     private val blocks = MutableList(BLOCKS_NUMBER) { HardDriveBlock() }
@@ -55,7 +55,7 @@ class HardDrive {
 class HardDriveBlock {
 
     companion object {
-        val BLOCK_SIZE = 1024
+        val BLOCK_SIZE = 64
     }
 
     val bytes = MutableList<Byte>(BLOCK_SIZE) { 0 }
