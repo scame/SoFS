@@ -23,9 +23,9 @@ class Interactor {
 
         callsHandler.apply {
             when (tokens[0]) {
-                CREATE -> create(tokens[1])
-                REMOVE -> remove(tokens[1])
-                OPEN -> open(tokens[1])
+                CREATE -> createFile(tokens[1])
+                REMOVE -> removeFile(tokens[1])
+                OPEN -> openFile(tokens[1])
 
                 CLOSE -> close(tokens[1].toInt())
                 WRITE -> write(tokens[1].toInt(), tokens[2].toInt())

@@ -22,9 +22,10 @@ class Directory(private val fdh: FileDescriptorsModel,
                 private val openFileTable: OpenFileTable) {
 
     companion object {
-        val MAX_ENTRIES = 23831
-
         val DIR_FD_INDEX = 0
+
+        val MAX_ENTRIES = 8
+        val MAX_FILENAME_LENGTH = 19
 
         val FD_OFFSET = 20
         val IN_USE_FLAG_OFFSET = FD_OFFSET + 1
@@ -52,7 +53,8 @@ class Directory(private val fdh: FileDescriptorsModel,
         val dataBlockIndex = bitmapModel.getFreeBlockWithIndex().index
         bitmapModel.changeBlockInUseState(dataBlockIndex, true)
 
-        directoryFd.dataBlockIndexes.add(dataBlockIndex)
+        val index = directoryFd.dataBlockIndices.withIndex().first { it.value == 0 }.index
+        directoryFd.dataBlockIndices[index] = dataBlockIndex
     }
 
     private fun bindOftEntry() {
@@ -129,23 +131,20 @@ class Directory(private val fdh: FileDescriptorsModel,
         oftEntry.clear()
     }
 
-    fun bindDirectoryEntry(fileName: String, fdIndex: Int) {
+    fun bindDirectoryEntry(fileName: String, fdIndex: Int): Message {
         val directoryEntry = entries.find { it.fileName == fileName }
-        if (directoryEntry != null) {
-            println("Error: file already exists"); return
-        }
 
-        val freeDirectoryEntry = entries.withIndex().firstOrNull { !it.value.isInUse }
-        if (freeDirectoryEntry == null) {
-            println("Error: no free directory slots"); return
-        }
+        if (directoryEntry != null) return FileExists
+
+        val freeDirectoryEntry = entries.withIndex()
+                .firstOrNull { !it.value.isInUse } ?: return NoFreeDirEntry
 
         freeDirectoryEntry.value.fileName = fileName
         freeDirectoryEntry.value.fdIndex = fdIndex
         freeDirectoryEntry.value.isInUse = true
 
         persistDirectoryEntry(freeDirectoryEntry.value, freeDirectoryEntry.index)
-        println("Binding successful")
+        return Success()
     }
 
     private fun persistDirectoryEntry(directoryEntry: DirectoryEntry, entryIndex: Int) {
@@ -180,7 +179,7 @@ class Directory(private val fdh: FileDescriptorsModel,
     private fun persistFdIndex(fileDirectoryEntry: DirectoryEntry, entryIndex: Int) {
 
         val fdIndexByte = fileDirectoryEntry.fdIndex.toByte()
-         val bytesOffset = entryIndex * ENTRY_SIZE_IN_BYTES + FD_OFFSET
+        val bytesOffset = entryIndex * ENTRY_SIZE_IN_BYTES + FD_OFFSET
         var positionWithinBlock = bytesOffset % HardDriveBlock.BLOCK_SIZE
 
         oftEntry.putIntoBuffer(positionWithinBlock++, fdIndexByte)
@@ -202,10 +201,9 @@ class Directory(private val fdh: FileDescriptorsModel,
     fun getDirectoryEntry(fileName: String): DirectoryEntry? =
             entries.find { it.fileName == fileName }
 
-    fun printFilesMetaInfo() {
-        entries.filter { it.isInUse }.forEach {
-            val fd = fdh.getFdByIndex(it.fdIndex)
-            println("file name: ${it.fileName}; file length (bytes): ${fd.fileLength}")
-        }
-    }
+    fun getFilesMetaInfo() = DirEntries(
+            entries.filter { it.isInUse }.map {
+                val fd = fdh.getFdByIndex(it.fdIndex)
+                it.fileName to fd.fileLength
+            })
 }

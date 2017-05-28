@@ -12,7 +12,6 @@ class BitmapModel(val hardDrive: HardDrive) {
     }
 
     fun getFreeBlockWithIndex(): IndexedValue<HardDriveBlock> {
-
         for (blockIndex in 0 until HardDrive.BITMAP_BLOCKS_NUMBER) {
             val bitmapBlock = hardDrive.getBlock(blockIndex)
 
@@ -28,19 +27,23 @@ class BitmapModel(val hardDrive: HardDrive) {
                 }
             }
         }
+
         throw NoSuchElementException()
     }
 
-    private fun isBitSet(byte: Byte, position: Int) = (byte.toInt() ushr (7 - position)).and(1) == 1
+    private fun isBitSet(byte: Byte, position: Int) =
+            (byte.toInt() ushr (7 - position)).and(1) == 1
 
     fun changeBlockInUseState(blockIndex: Int, isInUse: Boolean) {
         val bitmapIndexPair = findBitmapIndexPair(blockIndex)
 
         val byteToChange = hardDrive.getBlock(bitmapIndexPair.first).bytes[bitmapIndexPair.second / 8]
         if (isInUse) {
-            byteToChange or ((1 shl (7 - bitmapIndexPair.second % 8)).toByte())
+            hardDrive.getBlock(bitmapIndexPair.first).bytes[bitmapIndexPair.second / 8] =
+                    byteToChange or ((1 shl (7 - bitmapIndexPair.second % 8)).toByte())
         } else {
-            byteToChange and ((1 shl (7 - bitmapIndexPair.second % 8)).inv().toByte())
+            hardDrive.getBlock(bitmapIndexPair.first).bytes[bitmapIndexPair.second / 8] =
+                    byteToChange and ((1 shl (7 - bitmapIndexPair.second % 8)).inv().toByte())
         }
     }
 

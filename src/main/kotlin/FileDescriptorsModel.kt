@@ -13,14 +13,14 @@ import java.nio.ByteBuffer
  */
 
 data class FileDescriptor(var fileLength: Int,
-                          var dataBlockIndexes: MutableList<Int> =
+                          var dataBlockIndices: MutableList<Int> =
                           MutableList(FileDescriptorsModel.DATA_BLOCKS_NUMBER) { -1 },
                           var inUse: Boolean)
 
 fun FileDescriptor.clear() {
     inUse = false
     fileLength = 0
-    (0 until dataBlockIndexes.size).forEach { dataBlockIndexes[it] = -1 }
+    (0 until dataBlockIndices.size).forEach { dataBlockIndices[it] = -1 }
 }
 
 class FileDescriptorsModel(private val hardDrive: HardDrive,
@@ -70,7 +70,7 @@ class FileDescriptorsModel(private val hardDrive: HardDrive,
 
     fun getDataBlockFromFdWithIndex(fdIndex: Int, dataBlockNumber: Int): IndexedValue<HardDriveBlock> {
         val fd = getFdByIndex(fdIndex)
-        val dataBlockIndex = fd.dataBlockIndexes[dataBlockNumber]
+        val dataBlockIndex = fd.dataBlockIndices[dataBlockNumber]
 
         return IndexedValue(dataBlockIndex, hardDrive.getBlock(dataBlockIndex))
     }
@@ -79,12 +79,12 @@ class FileDescriptorsModel(private val hardDrive: HardDrive,
         val fd = getFdByIndex(fdIndex)
 
         (0 until DATA_BLOCKS_NUMBER).forEach {
-            val dataBlockIndex = fd.dataBlockIndexes[it]
+            val dataBlockIndex = fd.dataBlockIndices[it]
 
             if (dataBlockIndex != -1) {
                 hardDrive.setBlock(dataBlockIndex)
                 bitmapModel.changeBlockInUseState(dataBlockIndex, false)
-                fd.dataBlockIndexes[it] = -1
+                fd.dataBlockIndices[it] = -1
             }
         }
 
@@ -106,7 +106,9 @@ class FileDescriptorsModel(private val hardDrive: HardDrive,
 
         val fd = getFdByIndex(fdIndex)
         fd.inUse = true
-        fd.dataBlockIndexes.add(dataBlockIndex)
+
+        val index = fd.dataBlockIndices.withIndex().first { it.value == 0 }.index
+        fd.dataBlockIndices[index] = dataBlockIndex
     }
 
     private fun getFileDescriptorsFromDisk(): List<FileDescriptor> {
@@ -114,8 +116,7 @@ class FileDescriptorsModel(private val hardDrive: HardDrive,
 
         return List(FD_NUMBER, { it ->
             val bytes = fileDescriptorsBlock.bytes.subList(
-                    it * FD_SIZE_IN_BYTES, it * FD_SIZE_IN_BYTES + FD_SIZE_IN_BYTES
-            )
+                    it * FD_SIZE_IN_BYTES, it * FD_SIZE_IN_BYTES + FD_SIZE_IN_BYTES)
             parseFdFromBytes(bytes)
         })
     }
