@@ -10,7 +10,9 @@ data class OpenFileTableEntry(val readWriteBuffer: ByteBuffer,
                               var modified: Boolean = false)
 
 fun OpenFileTableEntry.updateFileSize(fdh: FileDescriptorsModel) {
-    fdh.getFdByIndex(fdIndex).fileLength = currentPosition
+    val fd = fdh.getFdByIndex(fdIndex)
+    if (currentPosition > fd.fileLength)
+        fd.fileLength = currentPosition
 }
 
 fun OpenFileTableEntry.allocateDataBlock(bitmapModel: BitmapModel, fdh: FileDescriptorsModel) {
