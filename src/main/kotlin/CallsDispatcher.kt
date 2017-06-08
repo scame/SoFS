@@ -27,10 +27,10 @@ class CallsDispatcher {
     object COMMANDS {
         val WRITE = "write"
         val READ = "read"
-        val OPEN = "openFile"
+        val OPEN = "open"
         val CLOSE = "close"
-        val CREATE = "createFile"
-        val REMOVE = "removeFile"
+        val CREATE = "create"
+        val REMOVE = "remove"
         val LSEEK = "lseek"
         val DIRECTORY = "dir"
         val SAVE = "save"
@@ -42,6 +42,7 @@ class CallsDispatcher {
         // real initialization goes into init block to avoid optional types handling
         // file descriptors will be initialized lazily (accordingly to disk state)
         rootDir.initCleanDirectory()
+        println("Directory initialized successfully")
     }
 
     fun kill() {
@@ -59,35 +60,93 @@ class CallsDispatcher {
     }
 
 
-    infix fun createFile(fileName: String): Message =
-            nameBasedCommandsHandler.createFile(fileName)
+    infix fun createFile(fileName: String): Message {
+        val msg = nameBasedCommandsHandler.createFile(fileName)
+        when (msg) {
+            FileNameTooLong -> println("Error: filename too long")
+            NoFreeFD -> println("Error: no free fd")
+            FileExists -> println("Error: file with such name already exists")
+            NoFreeDirEntry -> println("Error: no free directory entry")
+            else -> println("File created successfully")
+        }
 
-    infix fun openFile(fileName: String): Message =
-            nameBasedCommandsHandler.openFile(fileName)
+        return msg
+    }
 
-    infix fun removeFile(fileName: String): Message =
-            nameBasedCommandsHandler.removeFile(fileName)
+    infix fun openFile(fileName: String): Message {
+        val msg = nameBasedCommandsHandler.openFile(fileName)
+        when (msg) {
+            NoFile -> println("Error: no file with such name")
+            FileOpen -> println("Error: file with such name is already open")
+            NoFreeOFTEntry -> println("Error: no free OFT entry")
+            is Success -> println("File open successfully - fd ${msg.value}")
+        }
 
-    fun read(fd: Int, bytesNumber: Int): Message =
-            fdBasedCommandsHandler.read(fd, bytesNumber)
+        return msg
+    }
 
-    fun write(fd: Int, bytesNumber: Int): Message =
-            fdBasedCommandsHandler.write(fd, bytesNumber)
+    infix fun removeFile(fileName: String): Message {
+        val msg = nameBasedCommandsHandler.removeFile(fileName)
+        when (msg) {
+            NoFile -> println("Error: no file with such name")
+            DeleteOpenFile -> println("Error: can't delete file, while it's open")
+            else -> println("File removed successfully")
+        }
 
-    fun lseek(fd: Int, position: Int): Message =
-            fdBasedCommandsHandler.lseek(fd, position)
+        return msg
+    }
 
-    infix fun close(fd: Int): Message =
-            fdBasedCommandsHandler.closeFile(fd)
+    fun read(fd: Int, bytesNumber: Int): Message {
+        val msg = fdBasedCommandsHandler.read(fd, bytesNumber)
+        when (msg) {
+            NoFile -> println("Error: no file with such FD")
+            is Buffer -> println(msg.data)
+        }
 
-    fun directory(): DirEntries =
-            rootDir.getFilesMetaInfo()
+        return msg
+    }
+
+    fun write(fd: Int, bytesNumber: Int): Message {
+        val msg = fdBasedCommandsHandler.write(fd, bytesNumber)
+        when (msg) {
+            FileTooLarge -> println("Error: file size too large")
+            NoFile -> println("Error: no file with such FD")
+            else -> println("$bytesNumber bytes written successfully")
+        }
+
+        return msg
+    }
+
+    fun lseek(fd: Int, position: Int): Message {
+        val msg = fdBasedCommandsHandler.lseek(fd, position)
+        when (msg) {
+            NoFile -> println("Error: no file with such FD")
+            SeekOutOfBounds -> println("Error: you can't seek beyond file length")
+            else -> println("Lseek to position $position successful")
+        }
+
+        return msg
+    }
+
+    infix fun close(fd: Int): Message {
+        val msg = fdBasedCommandsHandler.closeFile(fd)
+        when (msg) {
+            NoFile -> println("Error: no file with such FD")
+            else -> println("File closed successfully")
+        }
+
+        return msg
+    }
+
+    fun directory(): DirEntries = rootDir.getFilesMetaInfo()
 
     infix fun save(backFileName: String) {
         dbh.save(backFileName)
+        println("Directory has been successfully backed up to $backFileName")
     }
 
     infix fun restore(backFileName: String) {
         dbh.restore(backFileName)
+        println("Directory has been successfully restored from $backFileName")
     }
 }

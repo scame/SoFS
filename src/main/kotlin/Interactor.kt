@@ -15,6 +15,7 @@ class Interactor {
     private val callsHandler = CallsDispatcher()
 
     fun run() {
+        println("Init directory or restore from file to start")
         while (true) parseInputStr(readLine() ?: "")
     }
 
